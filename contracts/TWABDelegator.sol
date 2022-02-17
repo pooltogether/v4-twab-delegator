@@ -9,9 +9,10 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@pooltogether/v4-core/contracts/interfaces/ITicket.sol";
 
 import "./DelegatePosition.sol";
+import "./LowLevelDelegator.sol";
 
 /// @title Contract to delegate chances of winning to multiple delegatees
-contract TWABDelegator is ERC721 {
+contract TWABDelegator is ERC721, LowLevelDelegator {
   using Clones for address;
   using SafeERC20 for IERC20;
 
@@ -85,9 +86,6 @@ contract TWABDelegator is ERC721 {
 
   /// @notice Prize pool ticket to which this contract is tied to
   ITicket public immutable ticket;
-
-  /// @notice The instance to which all proxies will point
-  DelegatePosition public delegatePositionInstance;
 
   /**
    * @notice Staked amount per staker address
@@ -298,11 +296,7 @@ contract TWABDelegator is ERC721 {
    * @return Address at which the clone will be deployed
    */
   function _computeAddress(uint256 _tokenId) internal view returns (address) {
-    return
-      address(delegatePositionInstance).predictDeterministicAddress(
-        keccak256(abi.encodePacked(_tokenId)),
-        address(this)
-      );
+    return _computeAddress(_computeSalt(address(this), bytes32(_tokenId)));
   }
 
   /**
@@ -312,12 +306,7 @@ contract TWABDelegator is ERC721 {
    * @return Address of the newly created delegated position
    */
   function _createDelegatePosition(uint256 _tokenId) internal returns (DelegatePosition) {
-    DelegatePosition _delegatedPosition = DelegatePosition(
-      address(delegatePositionInstance).cloneDeterministic(keccak256(abi.encodePacked(_tokenId)))
-    );
-
-    _delegatedPosition.initialize();
-    return _delegatedPosition;
+    return _createDelegation(_computeSalt(address(this), bytes32(_tokenId)));
   }
 
   /**
@@ -350,11 +339,11 @@ contract TWABDelegator is ERC721 {
    * @param _delegatedPosition Address of the delegated position contract
    * @param _data The call data that will be executed
    */
-  function _executeCall(DelegatePosition _delegatedPosition, bytes memory _data) internal {
+  function _executeCall(DelegatePosition _delegatedPosition, bytes memory _data) internal returns (bytes[] memory){
     DelegatePosition.Call[] memory _calls = new DelegatePosition.Call[](1);
     _calls[0] = DelegatePosition.Call({ to: address(ticket), value: 0, data: _data });
 
-    _delegatedPosition.executeCalls(_calls);
+    return _delegatedPosition.executeCalls(_calls);
   }
 
   /* ============ Modifier/Require Functions ============ */

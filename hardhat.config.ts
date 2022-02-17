@@ -7,6 +7,7 @@ import 'hardhat-abi-exporter';
 import 'hardhat-deploy';
 import 'hardhat-deploy-ethers';
 import 'hardhat-gas-reporter';
+import 'hardhat-log-remover';
 import 'solidity-coverage';
 
 import { HardhatUserConfig } from 'hardhat/config';
@@ -45,14 +46,28 @@ const config: HardhatUserConfig = {
   },
   networks,
   solidity: {
-    version: '0.8.6',
-    settings: {
-      optimizer: {
-        enabled: optimizerEnabled,
-        runs: 200,
+    compilers: [
+      {
+        version: '0.8.6',
+        settings: {
+          optimizer: {
+            enabled: optimizerEnabled,
+            runs: 2000,
+          },
+          evmVersion: 'istanbul',
+        },
       },
-      evmVersion: 'istanbul',
-    },
+    ],
+  },
+  external: {
+    contracts: [
+      {
+        artifacts: 'node_modules/@pooltogether/v4-core/artifacts',
+      },
+      {
+        artifacts: 'node_modules/@pooltogether/loot-box/artifacts',
+      },
+    ],
   },
 };
 

@@ -27,6 +27,10 @@
     "typechain": "typechain --target=ethers-v5 \"./abis/*.json\" --out-dir \"./types\"",
     "prepack": "yarn compile"
   },
+  "dependencies": {
+    "@openzeppelin/contracts": "4.5.0",
+    "@pooltogether/v4-core": "1.2.0"
+  },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "2.0.4",
     "@nomiclabs/hardhat-etherscan": "3.0.0",

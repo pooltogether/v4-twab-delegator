@@ -62,13 +62,6 @@ contract TWABDelegator is ERC721, LowLevelDelegator {
   event Burned(uint256 tokenId, address indexed delegatee, uint256 amount);
 
   /**
-   * @notice Emmited when a delegation is revoked
-   * @param delegatee Address of the delegatee
-   * @param amount Amount of tokens that were delegated
-   */
-  event DelegationRevoked(address indexed delegatee, uint256 amount);
-
-  /**
    * @notice Emmited when a representative is set
    * @param user Address of the user
    * @param representative Amount of the representative
@@ -82,10 +75,25 @@ contract TWABDelegator is ERC721, LowLevelDelegator {
    */
   event RepresentativeRemoved(address indexed user, address indexed representative);
 
+  /* ============ Structs ============ */
+
+  /**
+   * @notice Struct to store metadata about a delegated position
+   * @param staker Address of the staker
+   * @param expiry Timestamp after which the delegated position can be transferred or burned
+   */
+  struct Delegation {
+    address staker;
+    uint96 expiry;
+  }
+
   /* ============ Variables ============ */
 
   /// @notice Prize pool ticket to which this contract is tied to
   ITicket public immutable ticket;
+
+  /// @notice Max expiry time during which a delegated position cannot be burned
+  uint256 public constant MAX_EXPIRY = 60 days;
 
   /**
    * @notice Staked amount per staker address
@@ -94,10 +102,10 @@ contract TWABDelegator is ERC721, LowLevelDelegator {
   mapping(address => uint256) internal stakedAmount;
 
   /**
-    @notice Staker per tokenId.
-    @dev tokenId => staker
+    @notice Delegation struct per tokenId.
+    @dev tokenId => Delegation
   */
-  mapping(uint256 => address) public staker;
+  mapping(uint256 => Delegation) public delegation;
 
   /**
    * @notice Representative elected by the staker to handle delegation.
@@ -184,16 +192,19 @@ contract TWABDelegator is ERC721, LowLevelDelegator {
    * @param _staker Address of the staker
    * @param _delegatee Address of the delegatee
    * @param _amount Amount of tickets to delegate
+   * @param _expiry Time during which the delegated position cannot be burned
    */
   function mint(
     address _staker,
     address _delegatee,
-    uint256 _amount
+    uint256 _amount,
+    uint96 _expiry
   ) external {
     _requireStakerOrRepresentative(_staker);
     require(_delegatee != address(0), "TWABDelegator/del-not-zero-addr");
     _requireAmountGtZero(_amount);
     _requireAmountLtStakedAmount(stakedAmount[_staker], _amount);
+    require(_expiry <= MAX_EXPIRY, "TWABDelegator/expiry-too-long");
 
     stakedAmount[_staker] -= _amount;
 
@@ -205,7 +216,10 @@ contract TWABDelegator is ERC721, LowLevelDelegator {
     IERC20(ticket).safeTransfer(_delegatedPosition, _amount);
     _safeMint(_delegatee, _tokenId);
 
-    staker[_tokenId] = _staker;
+    delegation[_tokenId] = Delegation({
+      staker: _staker,
+      expiry: uint96(block.timestamp) + _expiry
+    });
 
     emit Minted(_delegatedPosition, _tokenId, _delegatee, _amount);
   }
@@ -213,13 +227,17 @@ contract TWABDelegator is ERC721, LowLevelDelegator {
   /**
    * @notice Burn the NFT representing the amount of tickets delegated to `_delegatee`.
    * @dev Only callable by the `_staker` or his representative.
+   * @dev Will revert if expiry timestamp has not been reached.
    * @dev Tickets are withdrawn from the NFT in the `_beforeTokenTransfer` hook.
    * @param _tokenId Id of the NFT to burn
    */
   function burn(uint256 _tokenId) external {
     require(_tokenId > 0, "TWABDelegator/token-id-gt-zero");
 
-    address _staker = staker[_tokenId];
+    Delegation memory _delegation = delegation[_tokenId];
+    require(block.timestamp > _delegation.expiry, "TWABDelegator/delegation-locked");
+
+    address _staker = _delegation.staker;
     _requireStakerOrRepresentative(_staker);
 
     uint256 _balanceBefore = ticket.balanceOf(address(this));
@@ -282,7 +300,7 @@ contract TWABDelegator is ERC721, LowLevelDelegator {
       _withdrawCall(_delegatedPosition);
       _delegateCall(_delegatedPosition, address(0));
       _delegatedPosition.destroy(payable(_from));
-      staker[_tokenId] = address(0);
+      delete delegation[_tokenId];
     } else {
       _delegateCall(_delegatedPosition, _to);
     }

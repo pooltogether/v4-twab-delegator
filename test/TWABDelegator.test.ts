@@ -1,18 +1,22 @@
 import { expect } from 'chai';
-import { deployMockContract, MockContract } from 'ethereum-waffle';
-import { BigNumber, Contract, ContractFactory, Signer, Transaction, Wallet } from 'ethers';
+import { BigNumber, Contract, ContractFactory, Transaction } from 'ethers';
 import { ethers } from 'hardhat';
-import { Interface } from 'ethers/lib/utils';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { beforeEach } from 'mocha';
 
 const { constants, provider, utils } = ethers;
 const { AddressZero, MaxUint256, Zero } = constants;
-const { defaultAbiCoder, parseEther: toWei } = utils;
+const { parseEther: toWei } = utils;
 
-import { getEvents as getEventsHelper } from './helpers/getEvents';
+import { getEvents as getEventsUtil } from './utils/getEvents';
+import { increaseTime as increaseTimeUtil } from './utils/increaseTime';
 
-const getEvents = (tx: Transaction, contract: Contract) => getEventsHelper(provider, tx, contract);
+const getEvents = (tx: Transaction, contract: Contract) => getEventsUtil(provider, tx, contract);
+const increaseTime = (time: number) => increaseTimeUtil(provider, time);
+
+const MAX_EXPIRY = 5184000; // 60 days
+const getMaxExpiryTimestamp = async () =>
+  (await provider.getBlock('latest')).timestamp + MAX_EXPIRY;
 
 describe('Test Set Name', () => {
   let owner: SignerWithAddress;
@@ -233,18 +237,29 @@ describe('Test Set Name', () => {
     });
 
     it('should allow a staker to delegate by minting an NFT', async () => {
-      const transaction = await twabDelegator.mint(owner.address, firstDelegatee.address, amount);
+      const transaction = await twabDelegator.mint(
+        owner.address,
+        firstDelegatee.address,
+        amount,
+        MAX_EXPIRY,
+      );
+
       const delegatedPositionAddress = await getDelegatedPositionAddress(transaction);
 
       expect(await transaction)
         .to.emit(twabDelegator, 'Minted')
         .withArgs(delegatedPositionAddress, 1, firstDelegatee.address, amount);
 
+      const expiryTimestamp = await getMaxExpiryTimestamp();
+
       const accountDetails = await ticket.getAccountDetails(firstDelegatee.address);
       expect(accountDetails.balance).to.eq(amount);
 
+      const delegation = await twabDelegator.delegation(1);
+      expect(delegation.staker).to.eq(owner.address);
+      expect(delegation.expiry).to.eq(expiryTimestamp);
+
       expect(await twabDelegator.balanceOf(owner.address)).to.eq(Zero);
-      expect(await twabDelegator.staker(1)).to.eq(owner.address);
       expect(await twabDelegator.ownerOf(1)).to.eq(firstDelegatee.address);
 
       expect(await ticket.balanceOf(twabDelegator.address)).to.eq(Zero);
@@ -259,18 +274,22 @@ describe('Test Set Name', () => {
         owner.address,
         firstDelegatee.address,
         halfAmount,
+        MAX_EXPIRY,
       );
 
+      const firstTransactionExpiryTimestamp = await getMaxExpiryTimestamp();
       const firstDelegatedPositionAddress = await getDelegatedPositionAddress(firstTransaction);
 
       expect(await firstTransaction)
         .to.emit(twabDelegator, 'Minted')
         .withArgs(firstDelegatedPositionAddress, 1, firstDelegatee.address, halfAmount);
 
+      const secondTransactionExpiryTimestamp = await getMaxExpiryTimestamp();
       const secondTransaction = await twabDelegator.mint(
         owner.address,
         secondDelegatee.address,
         halfAmount,
+        MAX_EXPIRY,
       );
 
       const secondDelegatedPositionAddress = await getDelegatedPositionAddress(secondTransaction);
@@ -279,22 +298,27 @@ describe('Test Set Name', () => {
         .to.emit(twabDelegator, 'Minted')
         .withArgs(secondDelegatedPositionAddress, 2, secondDelegatee.address, halfAmount);
 
-      expect(await twabDelegator.balanceOf(owner.address)).to.eq(Zero);
-      expect(await ticket.balanceOf(twabDelegator.address)).to.eq(Zero);
-
       const firstDelegateeAccountDetails = await ticket.getAccountDetails(firstDelegatee.address);
       expect(firstDelegateeAccountDetails.balance).to.eq(halfAmount);
 
-      expect(await twabDelegator.staker(1)).to.eq(owner.address);
+      const firstDelegation = await twabDelegator.delegation(1);
+      expect(firstDelegation.staker).to.eq(owner.address);
+      expect(firstDelegation.expiry).to.eq(firstTransactionExpiryTimestamp);
+
+      expect(await twabDelegator.balanceOf(owner.address)).to.eq(Zero);
       expect(await twabDelegator.ownerOf(1)).to.eq(firstDelegatee.address);
 
+      expect(await ticket.balanceOf(twabDelegator.address)).to.eq(Zero);
       expect(await ticket.balanceOf(firstDelegatedPositionAddress)).to.eq(halfAmount);
       expect(await ticket.delegateOf(firstDelegatedPositionAddress)).to.eq(firstDelegatee.address);
 
       const secondDelegateeAccountDetails = await ticket.getAccountDetails(secondDelegatee.address);
       expect(secondDelegateeAccountDetails.balance).to.eq(halfAmount);
 
-      expect(await twabDelegator.staker(2)).to.eq(owner.address);
+      const secondDelegation = await twabDelegator.delegation(1);
+      expect(secondDelegation.staker).to.eq(owner.address);
+      expect(secondDelegation.expiry).to.eq(secondTransactionExpiryTimestamp);
+
       expect(await twabDelegator.ownerOf(2)).to.eq(secondDelegatee.address);
 
       expect(await ticket.balanceOf(secondDelegatedPositionAddress)).to.eq(halfAmount);
@@ -308,7 +332,7 @@ describe('Test Set Name', () => {
 
       const transaction = await twabDelegator
         .connect(representative)
-        .mint(owner.address, firstDelegatee.address, amount);
+        .mint(owner.address, firstDelegatee.address, amount, MAX_EXPIRY);
 
       const delegatedPositionAddress = await getDelegatedPositionAddress(transaction);
 
@@ -316,11 +340,16 @@ describe('Test Set Name', () => {
         .to.emit(twabDelegator, 'Minted')
         .withArgs(delegatedPositionAddress, 1, firstDelegatee.address, amount);
 
+      const expiryTimestamp = await getMaxExpiryTimestamp();
+
       const accountDetails = await ticket.getAccountDetails(firstDelegatee.address);
       expect(accountDetails.balance).to.eq(amount);
 
+      const delegation = await twabDelegator.delegation(1);
+      expect(delegation.staker).to.eq(owner.address);
+      expect(delegation.expiry).to.eq(expiryTimestamp);
+
       expect(await twabDelegator.balanceOf(owner.address)).to.eq(Zero);
-      expect(await twabDelegator.staker(1)).to.eq(owner.address);
       expect(await twabDelegator.ownerOf(1)).to.eq(firstDelegatee.address);
 
       expect(await ticket.balanceOf(twabDelegator.address)).to.eq(Zero);
@@ -330,32 +359,42 @@ describe('Test Set Name', () => {
 
     it('should fail to delegate if not a staker or representative', async () => {
       await expect(
-        twabDelegator.connect(stranger).mint(owner.address, firstDelegatee.address, amount),
+        twabDelegator
+          .connect(stranger)
+          .mint(owner.address, firstDelegatee.address, amount, MAX_EXPIRY),
       ).to.be.revertedWith('TWABDelegator/not-staker-or-rep');
     });
 
     it('should fail to delegate if staker is address zero', async () => {
       await expect(
-        twabDelegator.connect(stranger).mint(AddressZero, firstDelegatee.address, amount),
+        twabDelegator
+          .connect(stranger)
+          .mint(AddressZero, firstDelegatee.address, amount, MAX_EXPIRY),
       ).to.be.revertedWith('TWABDelegator/not-staker-or-rep');
     });
 
     it('should fail to delegate if delegatee is address zero', async () => {
-      await expect(twabDelegator.mint(owner.address, AddressZero, amount)).to.be.revertedWith(
-        'TWABDelegator/del-not-zero-addr',
-      );
+      await expect(
+        twabDelegator.mint(owner.address, AddressZero, amount, MAX_EXPIRY),
+      ).to.be.revertedWith('TWABDelegator/del-not-zero-addr');
     });
 
     it('should fail to delegate if amount is not greater than zero', async () => {
       await expect(
-        twabDelegator.mint(owner.address, firstDelegatee.address, Zero),
+        twabDelegator.mint(owner.address, firstDelegatee.address, Zero, MAX_EXPIRY),
       ).to.be.revertedWith('TWABDelegator/amount-gt-zero');
     });
 
     it('should fail to delegate if delegated amount is greater than staked amount', async () => {
       await expect(
-        twabDelegator.mint(owner.address, firstDelegatee.address, amount.mul(2)),
+        twabDelegator.mint(owner.address, firstDelegatee.address, amount.mul(2), MAX_EXPIRY),
       ).to.be.revertedWith('TWABDelegator/stake-lt-amount');
+    });
+
+    it('should fail to delegate if expiry is greater than 60 days', async () => {
+      await expect(
+        twabDelegator.mint(owner.address, firstDelegatee.address, amount, MAX_EXPIRY + 1),
+      ).to.be.revertedWith('TWABDelegator/expiry-too-long');
     });
   });
 
@@ -369,14 +408,21 @@ describe('Test Set Name', () => {
     });
 
     it('should allow a delegated position owner to transfer his NFT and his delegated amount to another user', async () => {
-      const transaction = await twabDelegator.mint(owner.address, firstDelegatee.address, amount);
+      const transaction = await twabDelegator.mint(
+        owner.address,
+        firstDelegatee.address,
+        amount,
+        MAX_EXPIRY,
+      );
+
+      const expiryTimestamp = await getMaxExpiryTimestamp();
       const delegatedPositionAddress = await getDelegatedPositionAddress(transaction);
+
+      expect(await twabDelegator.ownerOf(1)).to.eq(firstDelegatee.address);
 
       await twabDelegator
         .connect(firstDelegatee)
         .transferFrom(firstDelegatee.address, secondDelegatee.address, 1);
-
-      expect(await twabDelegator.ownerOf(1)).to.eq(secondDelegatee.address);
 
       const firstDelegateeAccountDetails = await ticket.getAccountDetails(firstDelegatee.address);
       expect(firstDelegateeAccountDetails.balance).to.eq(Zero);
@@ -384,8 +430,12 @@ describe('Test Set Name', () => {
       const secondDelegateeAccountDetails = await ticket.getAccountDetails(secondDelegatee.address);
       expect(secondDelegateeAccountDetails.balance).to.eq(amount);
 
+      const delegation = await twabDelegator.delegation(1);
+      expect(delegation.staker).to.eq(owner.address);
+      expect(delegation.expiry).to.eq(expiryTimestamp);
+
       expect(await twabDelegator.balanceOf(owner.address)).to.eq(Zero);
-      expect(await twabDelegator.staker(1)).to.eq(owner.address);
+      expect(await twabDelegator.ownerOf(1)).to.eq(secondDelegatee.address);
 
       expect(await ticket.balanceOf(twabDelegator.address)).to.eq(Zero);
       expect(await ticket.balanceOf(delegatedPositionAddress)).to.eq(amount);
@@ -393,12 +443,20 @@ describe('Test Set Name', () => {
     });
 
     it('should allow a staker to burn a delegated position that was transferred to another user', async () => {
-      const transaction = await twabDelegator.mint(owner.address, firstDelegatee.address, amount);
+      const transaction = await twabDelegator.mint(
+        owner.address,
+        firstDelegatee.address,
+        amount,
+        MAX_EXPIRY,
+      );
+
       const delegatedPositionAddress = await getDelegatedPositionAddress(transaction);
 
       await twabDelegator
         .connect(firstDelegatee)
         .transferFrom(firstDelegatee.address, secondDelegatee.address, 1);
+
+      await increaseTime(MAX_EXPIRY);
 
       expect(await twabDelegator.burn(1))
         .to.emit(twabDelegator, 'Burned')
@@ -414,8 +472,11 @@ describe('Test Set Name', () => {
       const secondDelegateeAccountDetails = await ticket.getAccountDetails(secondDelegatee.address);
       expect(secondDelegateeAccountDetails.balance).to.eq(Zero);
 
+      const delegation = await twabDelegator.delegation(1);
+      expect(delegation.staker).to.eq(AddressZero);
+      expect(delegation.expiry).to.eq(Zero);
+
       expect(await twabDelegator.balanceOf(owner.address)).to.eq(amount);
-      expect(await twabDelegator.staker(1)).to.eq(AddressZero);
 
       expect(await ticket.balanceOf(twabDelegator.address)).to.eq(amount);
       expect(await ticket.balanceOf(delegatedPositionAddress)).to.eq(Zero);
@@ -432,11 +493,18 @@ describe('Test Set Name', () => {
       await ticket.approve(twabDelegator.address, MaxUint256);
       await twabDelegator.stake(owner.address, amount);
 
-      const transaction = await twabDelegator.mint(owner.address, firstDelegatee.address, amount);
+      const transaction = await twabDelegator.mint(
+        owner.address,
+        firstDelegatee.address,
+        amount,
+        MAX_EXPIRY,
+      );
       delegatedPositionAddress = await getDelegatedPositionAddress(transaction);
     });
 
     it('should allow a staker to burn a delegated position to revoke delegated amount', async () => {
+      await increaseTime(MAX_EXPIRY + 1);
+
       expect(await twabDelegator.burn(1))
         .to.emit(twabDelegator, 'Burned')
         .withArgs(1, owner.address, amount);
@@ -444,8 +512,11 @@ describe('Test Set Name', () => {
       const accountDetails = await ticket.getAccountDetails(firstDelegatee.address);
       expect(accountDetails.balance).to.eq(Zero);
 
+      const delegation = await twabDelegator.delegation(1);
+      expect(delegation.staker).to.eq(AddressZero);
+      expect(delegation.expiry).to.eq(Zero);
+
       expect(await twabDelegator.balanceOf(owner.address)).to.eq(amount);
-      expect(await twabDelegator.staker(1)).to.eq(AddressZero);
 
       expect(await ticket.balanceOf(twabDelegator.address)).to.eq(amount);
       expect(await ticket.balanceOf(delegatedPositionAddress)).to.eq(Zero);
@@ -457,6 +528,7 @@ describe('Test Set Name', () => {
     });
 
     it('should allow a representative to burn a delegated position to revoke delegated amount', async () => {
+      await increaseTime(MAX_EXPIRY + 1);
       await twabDelegator.setRepresentative(representative.address);
 
       expect(await twabDelegator.connect(representative).burn(1))
@@ -466,8 +538,11 @@ describe('Test Set Name', () => {
       const accountDetails = await ticket.getAccountDetails(firstDelegatee.address);
       expect(accountDetails.balance).to.eq(Zero);
 
+      const delegation = await twabDelegator.delegation(1);
+      expect(delegation.staker).to.eq(AddressZero);
+      expect(delegation.expiry).to.eq(Zero);
+
       expect(await twabDelegator.balanceOf(owner.address)).to.eq(amount);
-      expect(await twabDelegator.staker(1)).to.eq(AddressZero);
 
       expect(await ticket.balanceOf(twabDelegator.address)).to.eq(amount);
       expect(await ticket.balanceOf(delegatedPositionAddress)).to.eq(Zero);
@@ -482,7 +557,12 @@ describe('Test Set Name', () => {
       await expect(twabDelegator.burn(Zero)).to.be.revertedWith('TWABDelegator/token-id-gt-zero');
     });
 
+    it('should fail to burn if expiry timestamp has not been reached and delegation is still locked', async () => {
+      await expect(twabDelegator.burn(1)).to.be.revertedWith('TWABDelegator/delegation-locked');
+    });
+
     it('should fail to burn if caller is not the staker or representative of the delegated position', async () => {
+      await increaseTime(MAX_EXPIRY + 1);
       await expect(twabDelegator.connect(stranger).burn(1)).to.be.revertedWith(
         'TWABDelegator/not-staker-or-rep',
       );

@@ -20,14 +20,14 @@ contract PermitAndMulticall {
     bytes32 s;
   }
 
-  function multicall(bytes[] calldata data) external returns (bytes[] memory results) {
-    return _multicall(data);
+  function multicall(bytes[] calldata _data) external returns (bytes[] memory results) {
+    return _multicall(_data);
   }
 
-  function _multicall(bytes[] calldata data) internal virtual returns (bytes[] memory results) {
-    results = new bytes[](data.length);
-    for (uint256 i = 0; i < data.length; i++) {
-      results[i] = Address.functionDelegateCall(address(this), data[i]);
+  function _multicall(bytes[] calldata _data) internal virtual returns (bytes[] memory results) {
+    results = new bytes[](_data.length);
+    for (uint256 i = 0; i < _data.length; i++) {
+      results[i] = Address.functionDelegateCall(address(this), _data[i]);
     }
     return results;
   }

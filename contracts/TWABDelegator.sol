@@ -58,19 +58,17 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
   );
 
   /**
-   * @notice Emmited when a delegated position is updated
+   * @notice Emmited when a delegatee is updated
    * @param delegatedPosition Address of the delegated position that was created
    * @param staker Address of the staker
    * @param slot Slot of the delegated position
    * @param delegatee Address of the delegatee
-   * @param amount Amount of tokens delegated
    */
-  event DelegationUpdated(
+  event DelegateeUpdated(
     DelegatePosition indexed delegatedPosition,
     address indexed staker,
     uint256 slot,
-    address indexed delegatee,
-    uint256 amount
+    address indexed delegatee
   );
 
   /**
@@ -216,29 +214,21 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
    * @param _staker Address of the staker
    * @param _slot Slot of the delegated position
    * @param _delegatee Address of the delegatee
-   * @param _amount Amount of tokens to add to the delegated position
    */
-  function updateDelegation(
+  function updateDelegatee(
     address _staker,
     uint256 _slot,
-    address _delegatee,
-    uint256 _amount
+    address _delegatee
   ) external {
     _requireStakerOrRepresentative(_staker);
     _requireDelegateeNotZeroAddress(_delegatee);
-    _requireAmountLtEqStakedAmount(stakedAmount[_staker], _amount);
 
     DelegatePosition _delegatedPosition = DelegatePosition(_computeAddress(_staker, _slot));
     _requireDelegatedPositionUnlocked(_delegatedPosition);
 
-    if (_amount > 0) {
-      stakedAmount[_staker] -= _amount;
-    }
-
-    IERC20(ticket).safeTransfer(address(_delegatedPosition), _amount);
     _delegateCall(_delegatedPosition, _delegatee);
 
-    emit DelegationUpdated(_delegatedPosition, _staker, _slot, _delegatee, _amount);
+    emit DelegateeUpdated(_delegatedPosition, _staker, _slot, _delegatee);
   }
 
   /**
@@ -292,6 +282,13 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
     emit RepresentativeRemoved(msg.sender, _representative);
   }
 
+  /**
+    * @notice Alow a user to approve ticket and run various calls in one transaction.
+    * @param _from Address of the sender
+    * @param _amount Amount of tickets to approve
+    * @param _permitSignature Permit signature
+    * @param _data Datas to call with `functionDelegateCall`
+   */
   function permitAndMulticall(
     address _from,
     uint256 _amount,

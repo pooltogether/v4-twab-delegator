@@ -25,10 +25,7 @@ contract LowLevelDelegator {
    * @param _lockUntil Timestamp until which the delegated position is locked
    * @return The newly created delegated position
    */
-  function _createDelegation(bytes32 _salt, uint96 _lockUntil)
-    internal
-    returns (DelegatePosition)
-  {
+  function _createDelegation(bytes32 _salt, uint96 _lockUntil) internal returns (DelegatePosition) {
     DelegatePosition _delegatedPosition = DelegatePosition(
       address(delegatePositionInstance).cloneDeterministic(_salt)
     );

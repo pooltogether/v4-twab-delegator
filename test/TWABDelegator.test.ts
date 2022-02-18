@@ -345,12 +345,20 @@ describe('Test Set Name', () => {
     it('should allow a delegator update the lock duration', async () => {
       await increaseTime(MAX_EXPIRY + 1);
 
-      expect(await twabDelegator.updateDelegatee(owner.address, 0, secondDelegatee.address, MAX_EXPIRY))
+      expect(
+        await twabDelegator.updateDelegatee(owner.address, 0, secondDelegatee.address, MAX_EXPIRY),
+      )
         .to.emit(twabDelegator, 'DelegateeUpdated')
-        .withArgs(owner.address, 0, secondDelegatee.address, await getMaxExpiryTimestamp(), owner.address);
+        .withArgs(
+          owner.address,
+          0,
+          secondDelegatee.address,
+          await getMaxExpiryTimestamp(),
+          owner.address,
+        );
 
       const delegatedPosition = await twabDelegator.getDelegationPosition(owner.address, 0);
-      expect(delegatedPosition.lockUntil).to.equal(await getTimestamp() + MAX_EXPIRY);
+      expect(delegatedPosition.lockUntil).to.equal((await getTimestamp()) + MAX_EXPIRY);
     });
 
     it('should allow a delegator to destroy a delegated position that was transferred to another user', async () => {
@@ -377,14 +385,16 @@ describe('Test Set Name', () => {
 
     it('should fail to update a delegatee if caller is not the delegator or representative of the delegated position', async () => {
       await expect(
-        twabDelegator.connect(stranger).updateDelegatee(owner.address, 0, secondDelegatee.address, 0),
+        twabDelegator
+          .connect(stranger)
+          .updateDelegatee(owner.address, 0, secondDelegatee.address, 0),
       ).to.be.revertedWith('TWABDelegator/not-delegator-or-rep');
     });
 
     it('should fail to update a delegatee if delegatee address passed is address zero', async () => {
-      await expect(twabDelegator.updateDelegatee(owner.address, 0, AddressZero, 0)).to.be.revertedWith(
-        'TWABDelegator/dlgt-not-zero-adr',
-      );
+      await expect(
+        twabDelegator.updateDelegatee(owner.address, 0, AddressZero, 0),
+      ).to.be.revertedWith('TWABDelegator/dlgt-not-zero-adr');
     });
 
     it('should fail to update an inexistent delegated position', async () => {
@@ -563,7 +573,11 @@ describe('Test Set Name', () => {
       await increaseTime(MAX_EXPIRY + 1);
       await twabDelegator.setRepresentative(representative.address);
 
-      expect(await twabDelegator.connect(representative).withdrawDelegationToStake(owner.address, 0, amount))
+      expect(
+        await twabDelegator
+          .connect(representative)
+          .withdrawDelegationToStake(owner.address, 0, amount),
+      )
         .to.emit(twabDelegator, 'WithdrewDelegationToStake')
         .withArgs(owner.address, 0, amount, representative.address);
 
@@ -590,15 +604,15 @@ describe('Test Set Name', () => {
     });
 
     it('should fail to withdraw from a delegation to the stake an inexistent delegated position', async () => {
-      await expect(twabDelegator.withdrawDelegationToStake(owner.address, 1, amount)).to.be.revertedWith(
-        'Transaction reverted: function call to a non-contract account',
-      );
+      await expect(
+        twabDelegator.withdrawDelegationToStake(owner.address, 1, amount),
+      ).to.be.revertedWith('Transaction reverted: function call to a non-contract account');
     });
 
     it('should fail to withdraw from a delegation to the stake a delegated position if delegation is still locked', async () => {
-      await expect(twabDelegator.withdrawDelegationToStake(owner.address, 0, amount)).to.be.revertedWith(
-        'TWABDelegator/delegation-locked',
-      );
+      await expect(
+        twabDelegator.withdrawDelegationToStake(owner.address, 0, amount),
+      ).to.be.revertedWith('TWABDelegator/delegation-locked');
     });
   });
 
@@ -645,14 +659,15 @@ describe('Test Set Name', () => {
       await increaseTime(MAX_EXPIRY + 1);
       await twabDelegator.setRepresentative(representative.address);
 
-      await expect(twabDelegator.connect(representative).withdrawDelegation(0, amount))
-        .to.be.revertedWith('Transaction reverted: function call to a non-contract account');
+      await expect(
+        twabDelegator.connect(representative).withdrawDelegation(0, amount),
+      ).to.be.revertedWith('Transaction reverted: function call to a non-contract account');
     });
 
     it('should fail to withdraw from a delegation if amount is not greater than zero', async () => {
-      await expect(
-        twabDelegator.withdrawDelegation(0, Zero),
-      ).to.be.revertedWith('TWABDelegator/amount-gt-zero');
+      await expect(twabDelegator.withdrawDelegation(0, Zero)).to.be.revertedWith(
+        'TWABDelegator/amount-gt-zero',
+      );
     });
 
     it('should fail to withdraw from a delegation if caller is not the delegator', async () => {
@@ -781,6 +796,17 @@ describe('Test Set Name', () => {
   });
 
   describe('getDelegationPosition()', () => {
+    it('should return an empty one', async () => {
+      const position = await twabDelegator.computeDelegationPositionAddress(owner.address, 0);
+      const { delegationPosition, delegatee, balance, lockUntil, wasCreated } =
+        await twabDelegator.getDelegationPosition(owner.address, 0);
+      expect(delegationPosition).to.equal(position);
+      expect(delegatee).to.equal(AddressZero);
+      expect(balance).to.equal('0');
+      expect(lockUntil).to.equal('0');
+      expect(wasCreated).to.equal(false);
+    });
+
     it('should allow a user to get the delegate position info', async () => {
       const amount = toWei('1000');
       await ticket.mint(owner.address, amount);
@@ -794,16 +820,15 @@ describe('Test Set Name', () => {
       );
 
       await twabDelegator.fundDelegationFromStake(owner.address, 0, amount);
-
       const block = await ethers.provider.getBlock(transaction.blockNumber);
       const position = await twabDelegator.computeDelegationPositionAddress(owner.address, 0);
-      const { delegationPosition, delegatee, balance, lockUntil } =
+      const { delegationPosition, delegatee, balance, lockUntil, wasCreated } =
         await twabDelegator.getDelegationPosition(owner.address, 0);
-
       expect(delegationPosition).to.equal(position);
       expect(delegatee).to.equal(firstDelegatee.address);
       expect(balance).to.equal(amount);
       expect(lockUntil).to.equal(block.timestamp + MAX_EXPIRY);
+      expect(wasCreated).to.equal(true);
     });
   });
 });

@@ -58,6 +58,22 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
   );
 
   /**
+   * @notice Emmited when a delegated position is updated
+   * @param delegatedPosition Address of the delegated position that was created
+   * @param staker Address of the staker
+   * @param slot Slot of the delegated position
+   * @param delegatee Address of the delegatee
+   * @param amount Amount of tokens delegated
+   */
+  event DelegationUpdated(
+    DelegatePosition indexed delegatedPosition,
+    address indexed staker,
+    uint256 slot,
+    address indexed delegatee,
+    uint256 amount
+  );
+
+  /**
    * @notice Emmited when a delegated position is destroyed
    * @param staker Address of the staker
    * @param slot  Slot of the delegated position
@@ -162,7 +178,6 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
    * @notice Mint an NFT representing the delegated `_amount` of tickets to `_delegatee`.
    * @dev Only callable by the `_staker` or his representative.
    * @dev Will revert if staked amount is less than `_amount`.
-   * @dev Ticket delegation is handled in the `_beforeTokenTransfer` hook.
    * @param _staker Address of the staker
    * @param _slot Slot of the delegated position
    * @param _delegatee Address of the delegatee
@@ -177,7 +192,7 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
     uint256 _lockDuration
   ) external {
     _requireStakerOrRepresentative(_staker);
-    require(_delegatee != address(0), "TWABDelegator/del-not-zero-addr");
+    _requireDelegateeNotZeroAddress(_delegatee);
     _requireAmountGtZero(_amount);
     _requireAmountLtEqStakedAmount(stakedAmount[_staker], _amount);
     require(_lockDuration <= MAX_LOCK, "TWABDelegator/lock-too-long");
@@ -194,17 +209,48 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
+   * @notice Update a delegated position `delegatee` and `amount` delegated.
+   * @dev Only callable by the `_staker` or his representative.
+   * @dev Will revert if staked amount is less than `_amount`.
+   * @dev Will revert if delegated position is still locked.
+   * @param _staker Address of the staker
+   * @param _slot Slot of the delegated position
+   * @param _delegatee Address of the delegatee
+   * @param _amount Amount of tokens to add to the delegated position
+   */
+  function updateDelegation(
+    address _staker,
+    uint256 _slot,
+    address _delegatee,
+    uint256 _amount
+  ) external {
+    _requireStakerOrRepresentative(_staker);
+    _requireDelegateeNotZeroAddress(_delegatee);
+    _requireAmountLtEqStakedAmount(stakedAmount[_staker], _amount);
+
+    DelegatePosition _delegatedPosition = DelegatePosition(_computeAddress(_staker, _slot));
+    _requireDelegatedPositionUnlocked(_delegatedPosition);
+
+    if (_amount > 0) {
+      stakedAmount[_staker] -= _amount;
+    }
+
+    IERC20(ticket).safeTransfer(address(_delegatedPosition), _amount);
+    _delegateCall(_delegatedPosition, _delegatee);
+
+    emit DelegationUpdated(_delegatedPosition, _staker, _slot, _delegatee, _amount);
+  }
+
+  /**
    * @notice Burn the NFT representing the amount of tickets delegated to `_delegatee`.
    * @dev Only callable by the `_staker` or his representative.
-   * @dev Will revert if `lockUntil` timestamp has not been reached.
-   * @dev Tickets are withdrawn from the NFT in the `_beforeTokenTransfer` hook.
+   * @dev Will revert if delegated position is still locked.
    */
   function destroyDelegation(address _staker, uint256 _slot) external {
     _requireStakerOrRepresentative(_staker);
 
     DelegatePosition _delegatedPosition = DelegatePosition(_computeAddress(_staker, _slot));
-
-    require(block.timestamp > _delegatedPosition.lockUntil(), "TWABDelegator/delegation-locked");
+    _requireDelegatedPositionUnlocked(_delegatedPosition);
 
     uint256 _balanceBefore = ticket.balanceOf(address(this));
 
@@ -345,7 +391,15 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
-   * @notice Require to verify that amount is greater than 0
+   * @notice Require to verify that `_delegatee` is not address zero.
+   * @param _delegatee Address of the delegatee
+   */
+  function _requireDelegateeNotZeroAddress(address _delegatee) internal pure {
+    require(_delegatee != address(0), "TWABDelegator/del-not-zero-addr");
+  }
+
+  /**
+   * @notice Require to verify that amount is greater than 0.
    * @param _amount Amount to check
    */
   function _requireAmountGtZero(uint256 _amount) internal pure {
@@ -353,7 +407,7 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
-   * @notice Require to verify that amount is greater than 0
+   * @notice Require to verify that amount is greater than 0.
    * @param _to Address to check
    */
   function _requireRecipientNotZeroAddress(address _to) internal pure {
@@ -361,11 +415,19 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
-   * @notice Require to verify that amount is greater than 0
+   * @notice Require to verify that amount is greater than 0.
    * @param _stakedAmount Amount of tickets staked by the staker
    * @param _amount Amount to check
    */
   function _requireAmountLtEqStakedAmount(uint256 _stakedAmount, uint256 _amount) internal pure {
     require(_stakedAmount >= _amount, "TWABDelegator/stake-lt-amount");
+  }
+
+  /**
+   * @notice Require to verify if a delegated position is locked.
+   * @param _delegatedPosition Delegated position to check
+   */
+  function _requireDelegatedPositionUnlocked(DelegatePosition _delegatedPosition) internal view {
+    require(block.timestamp > _delegatedPosition.lockUntil(), "TWABDelegator/delegation-locked");
   }
 }

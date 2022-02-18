@@ -42,20 +42,20 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
 
   /**
    * @notice Emmited when a new delegated position is created
-   * @param delegatedPosition Address of the delegated position that was created
-   * @param user Address of the user who created the delegated position
+   * @param staker Staker of the delegated position
    * @param slot Slot of the delegated position
    * @param lockUntil Timestamp until which the delegated position is locked
    * @param delegatee Address of the delegatee
-   * @param amount Amount of tokens delegated
+   * @param user Address of the user who created the delegated position
+   * @param delegatedPosition Address of the delegated position that was created
    */
   event DelegationCreated(
-    DelegatePosition indexed delegatedPosition,
-    address indexed user,
-    uint256 slot,
+    address indexed staker,
+    uint256 indexed slot,
     uint256 lockUntil,
     address indexed delegatee,
-    uint256 amount
+    address user,
+    DelegatePosition delegatedPosition
   );
 
   /**
@@ -189,37 +189,29 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
-   * @notice Mint an NFT representing the delegated `_amount` of tickets to `_delegatee`.
-   * @dev Only callable by the `_staker` or his representative.
-   * @dev Will revert if staked amount is less than `_amount`.
-   * @param _staker Address of the staker
+   * @notice Creates a new delegated position.
+   * @dev Callable by anyone.
+   * @dev The `_staker` and `_slot` params are used to compute the salt of the delegated position.
+   * @param _staker Address of the staker that will be able to handle the delegated position
    * @param _slot Slot of the delegated position
    * @param _delegatee Address of the delegatee
-   * @param _amount Amount of tickets to delegate
-   * @param _lockDuration Time during which the delegated position cannot be destroyed
+   * @param _lockDuration Time during which the delegated position cannot be destroyed or updated
    */
   function createDelegation(
     address _staker,
     uint256 _slot,
     address _delegatee,
-    uint256 _amount,
     uint256 _lockDuration
   ) external {
-    _requireStakerOrRepresentative(_staker);
+    _requireDelegatorNotZeroAddress(_staker);
     _requireDelegateeNotZeroAddress(_delegatee);
-    _requireAmountGtZero(_amount);
-    _requireAmountLtEqStakedAmount(stakedAmount[_staker], _amount);
     require(_lockDuration <= MAX_LOCK, "TWABDelegator/lock-too-long");
-
-    stakedAmount[_staker] -= _amount;
 
     uint256 _lockUntil = block.timestamp + _lockDuration;
     DelegatePosition _delegatedPosition = _createDelegatedPosition(_staker, _slot, _lockUntil);
-
-    IERC20(ticket).safeTransfer(address(_delegatedPosition), _amount);
     _delegateCall(_delegatedPosition, _delegatee);
 
-    emit DelegationCreated(_delegatedPosition, msg.sender, _slot, _lockUntil, _delegatee, _amount);
+    emit DelegationCreated(_staker, _slot, _lockUntil, _delegatee, msg.sender, _delegatedPosition);
   }
 
   /**
@@ -260,7 +252,7 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
     uint256 _slot,
     uint256 _amount
   ) external {
-    require(_staker != address(0), "TWABDelegator/stkr-not-zero-addr");
+    _requireDelegatorNotZeroAddress(_staker);
     _requireAmountGtZero(_amount);
 
     address _delegatedPosition = address(DelegatePosition(_computeAddress(_staker, _slot)));
@@ -432,7 +424,7 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
    * @param _delegatee Address of the delegatee
    */
   function _requireDelegateeNotZeroAddress(address _delegatee) internal pure {
-    require(_delegatee != address(0), "TWABDelegator/del-not-zero-addr");
+    require(_delegatee != address(0), "TWABDelegator/dlgt-not-zero-adr");
   }
 
   /**
@@ -441,6 +433,14 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
    */
   function _requireAmountGtZero(uint256 _amount) internal pure {
     require(_amount > 0, "TWABDelegator/amount-gt-zero");
+  }
+
+  /**
+   * @notice Require to verify that the delegator is not address zero.
+   * @param _delegator Address to check
+   */
+  function _requireDelegatorNotZeroAddress(address _delegator) internal pure {
+    require(_delegator != address(0), "TWABDelegator/dlgtr-not-zero-adr");
   }
 
   /**

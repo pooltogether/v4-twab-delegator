@@ -47,11 +47,11 @@ contract LowLevelDelegator {
 
   /**
    * @notice Compute salt used to deterministically deploy a clone.
-   * @param _staker Address of the staker
+   * @param _delegator Address of the delegator
    * @param _slot Slot of the delegated position
    * @return Salt used to deterministically deploy a clone.
    */
-  function _computeSalt(address _staker, bytes32 _slot) internal pure returns (bytes32) {
-    return keccak256(abi.encodePacked(_staker, _slot));
+  function _computeSalt(address _delegator, bytes32 _slot) internal pure returns (bytes32) {
+    return keccak256(abi.encodePacked(_delegator, _slot));
   }
 }

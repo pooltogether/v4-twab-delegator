@@ -6,68 +6,52 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 
 import "./DelegatePosition.sol";
 
-/**
- * The LowLevelDelegator allows users to create delegation positions very cheaply.
- */
+/// @title The LowLevelDelegator allows users to create delegated positions very cheaply.
 contract LowLevelDelegator {
   using Clones for address;
 
   /// @notice The instance to which all proxies will point
   DelegatePosition public delegatePositionInstance;
 
+  /// @notice Contract constructor
   constructor() {
     delegatePositionInstance = new DelegatePosition();
-    delegatePositionInstance.initialize();
-  }
-/*
-  function createDelegation(bytes32 _salt) external returns (DelegatePosition) {
-    return _createDelegation(_computeSalt(msg.sender, _salt));
+    delegatePositionInstance.initialize(0);
   }
 
-  function callDelegation(bytes32 _salt, DelegatePosition.Call[] memory _calls)
-    external
-    returns (bytes[] memory)
+  /**
+   * @notice Creates a clone of the delegated position.
+   * @param _salt Random number used to deterministically deploy the clone
+   * @param _lockUntil Timestamp until which the delegated position is locked
+   * @return The newly created delegated position
+   */
+  function _createDelegation(bytes32 _salt, uint256 _lockUntil)
+    internal
+    returns (DelegatePosition)
   {
-    DelegatePosition _delegatedPosition = DelegatePosition(_computeAddress(_computeSalt(msg.sender, _salt)));
-    return _delegatedPosition.executeCalls(_calls);
-  }
-
-  function destroyDelegation(bytes32 _salt, address _to) external {
-    _destroyDelegation(_computeSalt(msg.sender, _salt), _to);
-  }
-
-  function computeAddress(address _from, bytes32 _salt) external view returns (address) {
-      return _computeAddress(_computeSalt(_from, _salt));
-  }
-*/
-
-  function _createDelegation(bytes32 _salt) internal returns (DelegatePosition) {
     DelegatePosition _delegatedPosition = DelegatePosition(
       address(delegatePositionInstance).cloneDeterministic(_salt)
     );
-    _delegatedPosition.initialize();
+    _delegatedPosition.initialize(_lockUntil);
     return _delegatedPosition;
-  }
-
-  function _destroyDelegation(bytes32 _salt, address _to) internal {
-    DelegatePosition _delegatedPosition = DelegatePosition(_computeAddress(_salt));
-
-    _delegatedPosition.destroy(payable(_to));
   }
 
   /**
    * @notice Computes the address of a clone, also known as minimal proxy contract.
+   * @param _salt Random number used to compute the address
    * @return Address at which the clone will be deployed
    */
   function _computeAddress(bytes32 _salt) internal view returns (address) {
-    return
-      address(delegatePositionInstance).predictDeterministicAddress(
-        _salt,
-        address(this)
-      );
+    return address(delegatePositionInstance).predictDeterministicAddress(_salt, address(this));
   }
 
-  function _computeSalt(address _from, bytes32 _salt) internal view returns (bytes32) {
-    return keccak256(abi.encodePacked(_from, _salt));
+  /**
+   * @notice Compute salt used to deterministically deploy a clone.
+   * @param _staker Address of the staker
+   * @param _slot Slot of the delegated position
+   * @return Salt used to deterministically deploy a clone.
+   */
+  function _computeSalt(address _staker, bytes32 _slot) internal pure returns (bytes32) {
+    return keccak256(abi.encodePacked(_staker, _slot));
   }
 }

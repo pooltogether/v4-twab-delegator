@@ -5,11 +5,7 @@ pragma solidity 0.8.6;
 import "../TWABDelegator.sol";
 
 contract TWABDelegatorHarness is TWABDelegator {
-  constructor(
-    address _ticket,
-    string memory _name,
-    string memory _symbol
-  ) TWABDelegator(_ticket, _name, _symbol) {}
+  constructor(address _ticket) TWABDelegator(_ticket) {}
 
   function executeCall(DelegatePosition _delegatedPosition, bytes memory _data)
     external

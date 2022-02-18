@@ -764,6 +764,35 @@ describe('Test Set Name', () => {
       )
     });
   });
+
+  describe('getDelegationPosition()', () => {
+    it('should allow a user to get the delegate position info', async () =>  {
+      const amount = toWei('1000');
+      await ticket.mint(owner.address, amount);
+      await ticket.approve(twabDelegator.address, MaxUint256);
+      await twabDelegator.stake(owner.address, amount)
+      const transaction = await twabDelegator.createDelegation(
+        owner.address,
+        0,
+        firstDelegatee.address,
+        amount,
+        MAX_EXPIRY,
+      );
+      const block = await ethers.provider.getBlock(transaction.blockNumber)
+      const position = await twabDelegator.computeDelegationPositionAddress(owner.address, 0)
+      const {
+        delegationPosition,
+        delegatee,
+        balance,
+        lockUntil
+      } = await twabDelegator.getDelegationPosition(owner.address, 0)
+      expect(delegationPosition).to.equal(position)
+      expect(delegatee).to.equal(firstDelegatee.address)
+      expect(balance).to.equal(amount)
+      expect(lockUntil).to.equal(block.timestamp + MAX_EXPIRY)
+    })
+  })
+
 });
 
 

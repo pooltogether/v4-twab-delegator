@@ -115,6 +115,18 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
   );
 
   /**
+   * @notice Emmited when a delegated position is destroyed
+   * @param delegator Address of the delegator
+   * @param slot  Slot of the delegated position
+   * @param amount Amount of tokens undelegated
+   */
+  event WithdrewDelegation(
+    address indexed delegator,
+    uint256 indexed slot,
+    uint256 amount
+  );
+
+  /**
    * @notice Emmited when a representative is set
    * @param delegator Address of the delegator
    * @param representative Amount of the representative
@@ -321,23 +333,39 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
    * @notice Burn the NFT representing the amount of tickets delegated to `_delegatee`.
    * @dev Only callable by the `_delegator` or his representative.
    * @dev Will revert if delegated position is still locked.
+   * @param _delegator Address of the delegator
+   * @param _slot Slot of the delegation
+   * @param _amount Amount to withdraw
    */
-  function withdrawDelegationToStake(address _delegator, uint256 _slot) external {
+  function withdrawDelegationToStake(address _delegator, uint256 _slot, uint256 _amount) external {
     _requireDelegatorOrRepresentative(_delegator);
 
     DelegatePosition _delegatedPosition = DelegatePosition(_computeAddress(_delegator, _slot));
-    _requireDelegatedPositionUnlocked(_delegatedPosition);
 
     uint256 _balanceBefore = ticket.balanceOf(address(this));
 
-    _withdrawCall(_delegatedPosition);
+    _withdraw(_delegatedPosition, address(this), _amount);
 
     uint256 _balanceAfter = ticket.balanceOf(address(this));
-    uint256 _burntAmount = _balanceAfter - _balanceBefore;
+    uint256 _withdrawnAmount = _balanceAfter - _balanceBefore;
 
-    stakedAmount[_delegator] += _burntAmount;
+    stakedAmount[_delegator] += _withdrawnAmount;
 
-    emit WithdrewDelegationToStake(_delegator, _slot, _burntAmount, msg.sender);
+    emit WithdrewDelegationToStake(_delegator, _slot, _withdrawnAmount, msg.sender);
+  }
+
+  /**
+   * @notice Burn the NFT representing the amount of tickets delegated to `_delegatee`.
+   * @dev Only callable by the `_delegator` or his representative.
+   * @dev Will revert if delegated position is still locked.
+   * @param _slot Slot of the delegation
+   * @param _amount Amount to withdraw
+   */
+  function withdrawDelegation(uint256 _slot, uint256 _amount) external {
+    DelegatePosition _delegatedPosition = DelegatePosition(_computeAddress(msg.sender, _slot));
+    _withdraw(_delegatedPosition, msg.sender, _amount);
+
+    emit WithdrewDelegation(msg.sender, _slot, _amount);
   }
 
   /**
@@ -475,11 +503,12 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
    * @notice Call the `transfer` function on the delegated position.
    * @dev Will withdraw all the tickets from the `_delegatedPosition` to this contract.
    * @param _delegatedPosition Address of the delegated position contract
+   * @param _to Address of the recipient
+   * @param _amount Amount to withdraw
    */
-  function _withdrawCall(DelegatePosition _delegatedPosition) internal {
+  function _withdrawCall(DelegatePosition _delegatedPosition, address _to, uint256 _amount) internal {
     bytes4 _selector = ticket.transfer.selector;
-    uint256 _balance = ticket.balanceOf(address(_delegatedPosition));
-    bytes memory _data = abi.encodeWithSelector(_selector, address(this), _balance);
+    bytes memory _data = abi.encodeWithSelector(_selector, _to, _amount);
 
     _executeCall(_delegatedPosition, _data);
   }
@@ -497,6 +526,19 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
     _calls[0] = DelegatePosition.Call({ to: address(ticket), value: 0, data: _data });
 
     return _delegatedPosition.executeCalls(_calls);
+  }
+
+  /**
+    * @notice Withdraw from a delegation
+    * @param _delegatedPosition Address of the delegated position contract
+    * @param _to Address of the recipient
+    * @param _amount Amount to withdraw
+  */
+  function _withdraw(DelegatePosition _delegatedPosition, address _to, uint256 _amount) internal {
+    _requireAmountGtZero(_amount);
+    _requireDelegatedPositionUnlocked(_delegatedPosition);
+
+    _withdrawCall(_delegatedPosition, _to, _amount);
   }
 
   /* ============ Modifier/Require Functions ============ */

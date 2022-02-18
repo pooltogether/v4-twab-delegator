@@ -6,11 +6,25 @@
 
 <br />
 
-# PoolTogether Contracts Template
+# PoolTogether TWAB Delegator
 
-[![Coverage Status](https://coveralls.io/repos/github/pooltogether/pooltogether-contracts-template/badge.svg?branch=master)](https://coveralls.io/github/pooltogether/pooltogether-contracts-template?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/pooltogether/v4-twab-delegator/badge.svg?branch=master)](https://coveralls.io/github/pooltogether/v4-twab-delegator?branch=master)
 
-![Tests](https://github.com/pooltogether/pooltogether-contracts-template/actions/workflows/main.yml/badge.svg)
+![Tests](https://github.com/pooltogether/v4-twab-delegator/actions/workflows/main.yml/badge.svg)
+
+The PoolTogether V4 TWAB Delegator contract allows accounts to easily delegate their chance of winning to other accounts. See the [PoolTogether V4 Docs](https://dev.pooltogether.com) for more details on chance and the TWAB.
+
+- Accounts can delegate the chance of a portion of their tickets to another account
+- Accounts have "delegation slots" indexed from 0 to 2^256-1. Each slot is a separate delegation.
+- A delegation slot has a delegatee and an optional unlock date. If the unlock date is in the future, the delegation cannot be changed until that time has passed.
+- Accounts can deposit tickets into delegations
+- Accounts can withdraw tickets from delegations
+- Accounts can update the delegatee for a delegation
+- Accounts can destroy delegations
+- Accounts can stake tickets into the TWAB Delegator as credit.
+- Accounts can withdraw from their credit
+- Accounts can assign "representatives" to operate on their behalf.
+- Representatives can fund delegation positions from the account's credit
 
 # Usage
 

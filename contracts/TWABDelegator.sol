@@ -13,6 +13,7 @@ import "./PermitAndMulticall.sol";
 
 /// @title Contract to delegate chances of winning to multiple delegatees
 contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
+  using Address for address;
   using Clones for address;
   using SafeERC20 for IERC20;
 
@@ -42,7 +43,7 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
   /**
    * @notice Emmited when a new delegated position is created
    * @param delegatedPosition Address of the delegated position that was created
-   * @param staker Address of the staker
+   * @param user Address of the user who created the delegated position
    * @param slot Slot of the delegated position
    * @param lockUntil Timestamp until which the delegated position is locked
    * @param delegatee Address of the delegatee
@@ -50,7 +51,7 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
    */
   event DelegationCreated(
     DelegatePosition indexed delegatedPosition,
-    address indexed staker,
+    address indexed user,
     uint256 slot,
     uint256 lockUntil,
     address indexed delegatee,
@@ -59,25 +60,40 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
 
   /**
    * @notice Emmited when a delegatee is updated
-   * @param delegatedPosition Address of the delegated position that was created
-   * @param staker Address of the staker
+   * @param delegatedPosition Address of the delegated position that was updated
+   * @param user Address of the user who updated the delegatee
    * @param slot Slot of the delegated position
    * @param delegatee Address of the delegatee
    */
   event DelegateeUpdated(
     DelegatePosition indexed delegatedPosition,
-    address indexed staker,
+    address indexed user,
     uint256 slot,
     address indexed delegatee
   );
 
   /**
+   * @notice Emmited when a delegated position is funded
+   * @param delegatedPosition Address of the delegated position that was funded
+   * @param user Address of the user who funded the delegated position
+   * @param slot Slot of the delegated position
+   * @param amount Amount of tokens that were sent to the delegated position
+   */
+  event DelegationFunded(
+    address indexed delegatedPosition,
+    address indexed user,
+    uint256 slot,
+    uint256 amount
+  );
+
+  /**
    * @notice Emmited when a delegated position is destroyed
-   * @param staker Address of the staker
+   * @param user Address of the user who destroyed the delegated position
+   * @param staker Address of the staker who created the delegated position
    * @param slot  Slot of the delegated position
    * @param amount Amount of tokens undelegated
    */
-  event DelegationDestroyed(address indexed staker, uint256 indexed slot, uint256 amount);
+  event DelegationDestroyed(address indexed user, address indexed staker, uint256 indexed slot, uint256 amount);
 
   /**
    * @notice Emmited when a representative is set
@@ -203,7 +219,7 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
     IERC20(ticket).safeTransfer(address(_delegatedPosition), _amount);
     _delegateCall(_delegatedPosition, _delegatee);
 
-    emit DelegationCreated(_delegatedPosition, _staker, _slot, _lockUntil, _delegatee, _amount);
+    emit DelegationCreated(_delegatedPosition, msg.sender, _slot, _lockUntil, _delegatee, _amount);
   }
 
   /**
@@ -228,7 +244,31 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
 
     _delegateCall(_delegatedPosition, _delegatee);
 
-    emit DelegateeUpdated(_delegatedPosition, _staker, _slot, _delegatee);
+    emit DelegateeUpdated(_delegatedPosition, msg.sender, _slot, _delegatee);
+  }
+
+  /**
+   * @notice Fund a delegated position.
+   * @dev Callable by anyone.
+   * @dev Will revert if delegated position does not exist.
+   * @param _staker Address of the staker
+   * @param _slot Slot of the delegated position
+   * @param _amount Amount of tickets to send to the delegated position
+   */
+  function fundDelegation(
+    address _staker,
+    uint256 _slot,
+    uint256 _amount
+  ) external {
+    require(_staker != address(0), "TWABDelegator/stkr-not-zero-addr");
+    _requireAmountGtZero(_amount);
+
+    address _delegatedPosition = address(DelegatePosition(_computeAddress(_staker, _slot)));
+    require(_delegatedPosition.isContract(), "TWABDelegator/del-not-contract");
+
+    IERC20(ticket).safeTransferFrom(msg.sender, _delegatedPosition, _amount);
+
+    emit DelegationFunded(_delegatedPosition, msg.sender, _slot, _amount);
   }
 
   /**
@@ -253,7 +293,7 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
 
     stakedAmount[_staker] += _burntAmount;
 
-    emit DelegationDestroyed(_staker, _slot, _burntAmount);
+    emit DelegationDestroyed(msg.sender, _staker, _slot, _burntAmount);
   }
 
   /**
@@ -283,11 +323,11 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
-    * @notice Alow a user to approve ticket and run various calls in one transaction.
-    * @param _from Address of the sender
-    * @param _amount Amount of tickets to approve
-    * @param _permitSignature Permit signature
-    * @param _data Datas to call with `functionDelegateCall`
+   * @notice Alow a user to approve ticket and run various calls in one transaction.
+   * @param _from Address of the sender
+   * @param _amount Amount of tickets to approve
+   * @param _permitSignature Permit signature
+   * @param _data Datas to call with `functionDelegateCall`
    */
   function permitAndMulticall(
     address _from,

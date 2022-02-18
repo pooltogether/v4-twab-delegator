@@ -5,13 +5,14 @@ pragma solidity 0.8.6;
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@pooltogether/v4-core/contracts/interfaces/ITicket.sol";
 
 import "./DelegatePosition.sol";
+import "./LowLevelDelegator.sol";
+import "./PermitAndMulticall.sol";
 
 /// @title Contract to delegate chances of winning to multiple delegatees
-contract TWABDelegator is ERC721 {
+contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
   using Clones for address;
   using SafeERC20 for IERC20;
 
@@ -39,63 +40,66 @@ contract TWABDelegator is ERC721 {
   event TicketsUnstaked(address indexed staker, address indexed recipient, uint256 amount);
 
   /**
-   * @notice Emmited when a new delegated position is minted
-   * @param delegatedPosition Address of the NFT that was minted
-   * @param tokenId Id of the NFT that has been minted to the delegatee
+   * @notice Emmited when a new delegated position is created
+   * @param delegatedPosition Address of the delegated position that was created
+   * @param staker Address of the staker
+   * @param slot Slot of the delegated position
+   * @param lockUntil Timestamp until which the delegated position is locked
    * @param delegatee Address of the delegatee
    * @param amount Amount of tokens delegated
    */
-  event Minted(
-    address indexed delegatedPosition,
-    uint256 indexed tokenId,
+  event DelegationCreated(
+    DelegatePosition indexed delegatedPosition,
+    address indexed staker,
+    uint256 slot,
+    uint256 lockUntil,
     address indexed delegatee,
     uint256 amount
   );
 
   /**
-   * @notice Emmited when a delegated position is burned
-   * @param tokenId Id of the NFT that has been burned
+   * @notice Emmited when a delegatee is updated
+   * @param delegatedPosition Address of the delegated position that was created
+   * @param staker Address of the staker
+   * @param slot Slot of the delegated position
    * @param delegatee Address of the delegatee
+   */
+  event DelegateeUpdated(
+    DelegatePosition indexed delegatedPosition,
+    address indexed staker,
+    uint256 slot,
+    address indexed delegatee
+  );
+
+  /**
+   * @notice Emmited when a delegated position is destroyed
+   * @param staker Address of the staker
+   * @param slot  Slot of the delegated position
    * @param amount Amount of tokens undelegated
    */
-  event Burned(uint256 tokenId, address indexed delegatee, uint256 amount);
+  event DelegationDestroyed(address indexed staker, uint256 indexed slot, uint256 amount);
 
   /**
    * @notice Emmited when a representative is set
-   * @param user Address of the user
+   * @param staker Address of the staker
    * @param representative Amount of the representative
    */
-  event RepresentativeSet(address indexed user, address indexed representative);
+  event RepresentativeSet(address indexed staker, address indexed representative);
 
   /**
    * @notice Emmited when a representative is removed
-   * @param user Address of the user
+   * @param staker Address of the staker
    * @param representative Amount of the representative
    */
-  event RepresentativeRemoved(address indexed user, address indexed representative);
-
-  /* ============ Structs ============ */
-
-  /**
-   * @notice Struct to store metadata about a delegated position
-   * @param staker Address of the staker
-   * @param expiry Timestamp after which the delegated position can be transferred or burned
-   */
-  struct Delegation {
-    address staker;
-    uint96 expiry;
-  }
+  event RepresentativeRemoved(address indexed staker, address indexed representative);
 
   /* ============ Variables ============ */
 
   /// @notice Prize pool ticket to which this contract is tied to
   ITicket public immutable ticket;
 
-  /// @notice The instance to which all proxies will point
-  DelegatePosition public delegatePositionInstance;
-
-  /// @notice Max expiry time during which a delegated position cannot be burned
-  uint256 public constant MAX_EXPIRY = 60 days;
+  /// @notice Max lock time during which a delegated position cannot be destroyed
+  uint256 public constant MAX_LOCK = 60 days;
 
   /**
    * @notice Staked amount per staker address
@@ -104,39 +108,21 @@ contract TWABDelegator is ERC721 {
   mapping(address => uint256) internal stakedAmount;
 
   /**
-    @notice Delegation struct per tokenId.
-    @dev tokenId => Delegation
-  */
-  mapping(uint256 => Delegation) public delegation;
-
-  /**
    * @notice Representative elected by the staker to handle delegation.
    * @dev Representative can only handle delegation and cannot unstake tickets.
    * @dev staker => representative => bool allowing representative to represent the staker
    */
   mapping(address => mapping(address => bool)) public representative;
 
-  /// @notice Counter increasing when minting unique delegated position NFTs
-  uint256 public tokenIdCounter;
-
   /* ============ Constructor ============ */
 
   /**
    * @notice Contract constructor
    * @param _ticket Address of the prize pool ticket
-   * @param _name Name of the NFT
-   * @param _symbol Symbol of the NFT
    */
-  constructor(
-    address _ticket,
-    string memory _name,
-    string memory _symbol
-  ) ERC721(_name, _symbol) {
+  constructor(address _ticket) LowLevelDelegator() {
     require(_ticket != address(0), "TWABDelegator/tick-not-zero-addr");
     ticket = ITicket(_ticket);
-
-    delegatePositionInstance = new DelegatePosition();
-    delegatePositionInstance.initialize();
 
     emit TicketSet(_ticket);
   }
@@ -148,7 +134,7 @@ contract TWABDelegator is ERC721 {
    * @param _staker Address of the staker
    * @return Amount of tickets staked by the `_staker`
    */
-  function balanceOf(address _staker) public view override returns (uint256) {
+  function balanceOf(address _staker) public view returns (uint256) {
     return stakedAmount[_staker];
   }
 
@@ -178,7 +164,7 @@ contract TWABDelegator is ERC721 {
   function unstake(address _to, uint256 _amount) external onlyStaker {
     _requireRecipientNotZeroAddress(_to);
     _requireAmountGtZero(_amount);
-    _requireAmountLtStakedAmount(stakedAmount[msg.sender], _amount);
+    _requireAmountLtEqStakedAmount(stakedAmount[msg.sender], _amount);
 
     stakedAmount[msg.sender] -= _amount;
     IERC20(ticket).safeTransfer(_to, _amount);
@@ -190,68 +176,84 @@ contract TWABDelegator is ERC721 {
    * @notice Mint an NFT representing the delegated `_amount` of tickets to `_delegatee`.
    * @dev Only callable by the `_staker` or his representative.
    * @dev Will revert if staked amount is less than `_amount`.
-   * @dev Ticket delegation is handled in the `_beforeTokenTransfer` hook.
    * @param _staker Address of the staker
+   * @param _slot Slot of the delegated position
    * @param _delegatee Address of the delegatee
    * @param _amount Amount of tickets to delegate
-   * @param _expiry Time during which the delegated position cannot be burned
+   * @param _lockDuration Time during which the delegated position cannot be destroyed
    */
-  function mint(
+  function createDelegation(
     address _staker,
+    uint256 _slot,
     address _delegatee,
     uint256 _amount,
-    uint96 _expiry
+    uint256 _lockDuration
   ) external {
     _requireStakerOrRepresentative(_staker);
-    require(_delegatee != address(0), "TWABDelegator/del-not-zero-addr");
+    _requireDelegateeNotZeroAddress(_delegatee);
     _requireAmountGtZero(_amount);
-    _requireAmountLtStakedAmount(stakedAmount[_staker], _amount);
-    require(_expiry <= MAX_EXPIRY, "TWABDelegator/expiry-too-long");
+    _requireAmountLtEqStakedAmount(stakedAmount[_staker], _amount);
+    require(_lockDuration <= MAX_LOCK, "TWABDelegator/lock-too-long");
 
     stakedAmount[_staker] -= _amount;
 
-    tokenIdCounter++;
-    uint256 _tokenId = tokenIdCounter;
+    uint256 _lockUntil = block.timestamp + _lockDuration;
+    DelegatePosition _delegatedPosition = _createDelegatedPosition(_staker, _slot, _lockUntil);
 
-    address _delegatedPosition = address(_createDelegatePosition(_tokenId));
+    IERC20(ticket).safeTransfer(address(_delegatedPosition), _amount);
+    _delegateCall(_delegatedPosition, _delegatee);
 
-    IERC20(ticket).safeTransfer(_delegatedPosition, _amount);
-    _safeMint(_delegatee, _tokenId);
+    emit DelegationCreated(_delegatedPosition, _staker, _slot, _lockUntil, _delegatee, _amount);
+  }
 
-    delegation[_tokenId] = Delegation({
-      staker: _staker,
-      expiry: uint96(block.timestamp) + _expiry
-    });
+  /**
+   * @notice Update a delegated position `delegatee` and `amount` delegated.
+   * @dev Only callable by the `_staker` or his representative.
+   * @dev Will revert if staked amount is less than `_amount`.
+   * @dev Will revert if delegated position is still locked.
+   * @param _staker Address of the staker
+   * @param _slot Slot of the delegated position
+   * @param _delegatee Address of the delegatee
+   */
+  function updateDelegatee(
+    address _staker,
+    uint256 _slot,
+    address _delegatee
+  ) external {
+    _requireStakerOrRepresentative(_staker);
+    _requireDelegateeNotZeroAddress(_delegatee);
 
-    emit Minted(_delegatedPosition, _tokenId, _delegatee, _amount);
+    DelegatePosition _delegatedPosition = DelegatePosition(_computeAddress(_staker, _slot));
+    _requireDelegatedPositionUnlocked(_delegatedPosition);
+
+    _delegateCall(_delegatedPosition, _delegatee);
+
+    emit DelegateeUpdated(_delegatedPosition, _staker, _slot, _delegatee);
   }
 
   /**
    * @notice Burn the NFT representing the amount of tickets delegated to `_delegatee`.
    * @dev Only callable by the `_staker` or his representative.
-   * @dev Will revert if expiry timestamp has not been reached.
-   * @dev Tickets are withdrawn from the NFT in the `_beforeTokenTransfer` hook.
-   * @param _tokenId Id of the NFT to burn
+   * @dev Will revert if delegated position is still locked.
    */
-  function burn(uint256 _tokenId) external {
-    require(_tokenId > 0, "TWABDelegator/token-id-gt-zero");
-
-    Delegation memory _delegation = delegation[_tokenId];
-    require(block.timestamp > _delegation.expiry, "TWABDelegator/delegation-locked");
-
-    address _staker = _delegation.staker;
+  function destroyDelegation(address _staker, uint256 _slot) external {
     _requireStakerOrRepresentative(_staker);
+
+    DelegatePosition _delegatedPosition = DelegatePosition(_computeAddress(_staker, _slot));
+    _requireDelegatedPositionUnlocked(_delegatedPosition);
 
     uint256 _balanceBefore = ticket.balanceOf(address(this));
 
-    _burn(_tokenId);
+    _withdrawCall(_delegatedPosition);
+    _delegateCall(_delegatedPosition, address(0));
+    _delegatedPosition.destroy(payable(_staker));
 
     uint256 _balanceAfter = ticket.balanceOf(address(this));
     uint256 _burntAmount = _balanceAfter - _balanceBefore;
 
     stakedAmount[_staker] += _burntAmount;
 
-    emit Burned(_tokenId, _staker, _burntAmount);
+    emit DelegationDestroyed(_staker, _slot, _burntAmount);
   }
 
   /**
@@ -280,62 +282,48 @@ contract TWABDelegator is ERC721 {
     emit RepresentativeRemoved(msg.sender, _representative);
   }
 
+  /**
+    * @notice Alow a user to approve ticket and run various calls in one transaction.
+    * @param _from Address of the sender
+    * @param _amount Amount of tickets to approve
+    * @param _permitSignature Permit signature
+    * @param _data Datas to call with `functionDelegateCall`
+   */
+  function permitAndMulticall(
+    address _from,
+    uint256 _amount,
+    Signature calldata _permitSignature,
+    bytes[] calldata _data
+  ) external {
+    _permitAndMulticall(IERC20Permit(address(ticket)), _from, _amount, _permitSignature, _data);
+  }
+
   /* ============ Internal Functions ============ */
 
   /**
-   * @notice Hook from OpenZeppelin ERC721 implementation.
-   * @dev Called when an NFT is minted, burned or transferred.
-   * @dev When burned, tickets will be withdrawn from the NFT and undelegated.
-   * @dev When minted or transferred, tickets will be delegated to the new recipient `_to`.
-   * @param _from Address of the sender
-   * @param _to Address of the recipient
-   * @param _tokenId Id of the NFT
-   */
-  function _beforeTokenTransfer(
-    address _from,
-    address _to,
-    uint256 _tokenId
-  ) internal override {
-    DelegatePosition _delegatedPosition = DelegatePosition(_computeAddress(_tokenId));
-
-    if (_to == address(0)) {
-      _withdrawCall(_delegatedPosition);
-      _delegateCall(_delegatedPosition, address(0));
-      _delegatedPosition.destroy(payable(_from));
-      delete delegation[_tokenId];
-    } else {
-      _delegateCall(_delegatedPosition, _to);
-    }
-
-    super._beforeTokenTransfer(_from, _to, _tokenId);
-  }
-
-  /**
    * @notice Computes the address of a clone, also known as minimal proxy contract.
-   * @param _tokenId Token id of the NFT
+   * @param _staker Address of the staker
+   * @param _slot Slot of the delegated position
    * @return Address at which the clone will be deployed
    */
-  function _computeAddress(uint256 _tokenId) internal view returns (address) {
-    return
-      address(delegatePositionInstance).predictDeterministicAddress(
-        keccak256(abi.encodePacked(_tokenId)),
-        address(this)
-      );
+  function _computeAddress(address _staker, uint256 _slot) internal view returns (address) {
+    return _computeAddress(_computeSalt(_staker, bytes32(_slot)));
   }
 
   /**
    * @notice Creates a delegated position
    * @dev This function will deploy a clone, also known as minimal proxy contract.
-   * @param _tokenId ERC721 token id
+   * @param _staker Address of the staker
+   * @param _slot Slot of the delegated position
+   * @param _lockUntil Timestamp until which the delegated position is locked
    * @return Address of the newly created delegated position
    */
-  function _createDelegatePosition(uint256 _tokenId) internal returns (DelegatePosition) {
-    DelegatePosition _delegatedPosition = DelegatePosition(
-      address(delegatePositionInstance).cloneDeterministic(keccak256(abi.encodePacked(_tokenId)))
-    );
-
-    _delegatedPosition.initialize();
-    return _delegatedPosition;
+  function _createDelegatedPosition(
+    address _staker,
+    uint256 _slot,
+    uint256 _lockUntil
+  ) internal returns (DelegatePosition) {
+    return _createDelegation(_computeSalt(_staker, bytes32(_slot)), _lockUntil);
   }
 
   /**
@@ -368,11 +356,14 @@ contract TWABDelegator is ERC721 {
    * @param _delegatedPosition Address of the delegated position contract
    * @param _data The call data that will be executed
    */
-  function _executeCall(DelegatePosition _delegatedPosition, bytes memory _data) internal {
+  function _executeCall(DelegatePosition _delegatedPosition, bytes memory _data)
+    internal
+    returns (bytes[] memory)
+  {
     DelegatePosition.Call[] memory _calls = new DelegatePosition.Call[](1);
     _calls[0] = DelegatePosition.Call({ to: address(ticket), value: 0, data: _data });
 
-    _delegatedPosition.executeCalls(_calls);
+    return _delegatedPosition.executeCalls(_calls);
   }
 
   /* ============ Modifier/Require Functions ============ */
@@ -397,7 +388,15 @@ contract TWABDelegator is ERC721 {
   }
 
   /**
-   * @notice Require to verify that amount is greater than 0
+   * @notice Require to verify that `_delegatee` is not address zero.
+   * @param _delegatee Address of the delegatee
+   */
+  function _requireDelegateeNotZeroAddress(address _delegatee) internal pure {
+    require(_delegatee != address(0), "TWABDelegator/del-not-zero-addr");
+  }
+
+  /**
+   * @notice Require to verify that amount is greater than 0.
    * @param _amount Amount to check
    */
   function _requireAmountGtZero(uint256 _amount) internal pure {
@@ -405,7 +404,7 @@ contract TWABDelegator is ERC721 {
   }
 
   /**
-   * @notice Require to verify that amount is greater than 0
+   * @notice Require to verify that amount is greater than 0.
    * @param _to Address to check
    */
   function _requireRecipientNotZeroAddress(address _to) internal pure {
@@ -413,11 +412,19 @@ contract TWABDelegator is ERC721 {
   }
 
   /**
-   * @notice Require to verify that amount is greater than 0
+   * @notice Require to verify that amount is greater than 0.
    * @param _stakedAmount Amount of tickets staked by the staker
    * @param _amount Amount to check
    */
-  function _requireAmountLtStakedAmount(uint256 _stakedAmount, uint256 _amount) internal pure {
+  function _requireAmountLtEqStakedAmount(uint256 _stakedAmount, uint256 _amount) internal pure {
     require(_stakedAmount >= _amount, "TWABDelegator/stake-lt-amount");
+  }
+
+  /**
+   * @notice Require to verify if a delegated position is locked.
+   * @param _delegatedPosition Delegated position to check
+   */
+  function _requireDelegatedPositionUnlocked(DelegatePosition _delegatedPosition) internal view {
+    require(block.timestamp > _delegatedPosition.lockUntil(), "TWABDelegator/delegation-locked");
   }
 }

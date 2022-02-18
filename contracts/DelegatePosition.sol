@@ -15,13 +15,17 @@ contract DelegatePosition {
     bytes data;
   }
 
-  /// @notice Contract owner
+  /// @notice Contract owner.
   address private _owner;
 
+  /// @notice Timestamp until which the delegated position is locked.
+  uint256 public lockUntil;
+
   /// @notice Initializes the delegate position
-  function initialize() public {
+  function initialize(uint256 _lockUntil) public {
     require(_owner == address(0), "DelegatePosition/already-init");
     _owner = msg.sender;
+    lockUntil = _lockUntil;
   }
 
   /**

@@ -240,12 +240,12 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
-   * @notice Fund a delegated position.
+   * @notice Fund a delegation.
    * @dev Callable by anyone.
-   * @dev Will revert if delegated position does not exist.
+   * @dev Will revert if delegation does not exist.
    * @param _staker Address of the staker
-   * @param _slot Slot of the delegated position
-   * @param _amount Amount of tickets to send to the delegated position
+   * @param _slot Slot of the delegation
+   * @param _amount Amount of tickets to send to the delegation
    */
   function fundDelegation(
     address _staker,
@@ -255,12 +255,40 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
     _requireDelegatorNotZeroAddress(_staker);
     _requireAmountGtZero(_amount);
 
-    address _delegatedPosition = address(DelegatePosition(_computeAddress(_staker, _slot)));
-    require(_delegatedPosition.isContract(), "TWABDelegator/del-not-contract");
+    address _delegation = address(DelegatePosition(_computeAddress(_staker, _slot)));
+    _requireContract(_delegation);
 
-    IERC20(ticket).safeTransferFrom(msg.sender, _delegatedPosition, _amount);
+    IERC20(ticket).safeTransferFrom(msg.sender, _delegation, _amount);
 
-    emit DelegationFunded(_delegatedPosition, msg.sender, _slot, _amount);
+    emit DelegationFunded(_delegation, msg.sender, _slot, _amount);
+  }
+
+  /**
+   * @notice Fund a delegation using `_amount` of tokens that has been staked by the `_delegator`.
+   * @dev Callable only by the `_delegator` or his representative.
+   * @dev Will revert if delegation does not exist.
+   * @dev Will revert if `_amount` is greater than the staked amount.
+   * @param _delegator Address of the delegator
+   * @param _slot Slot of the delegation
+   * @param _amount Amount of tickets to send to the delegation
+   */
+  function fundDelegationFromStake(
+    address _delegator,
+    uint256 _slot,
+    uint256 _amount
+  ) external {
+    _requireStakerOrRepresentative(_delegator);
+    _requireAmountGtZero(_amount);
+    _requireAmountLtEqStakedAmount(stakedAmount[_delegator], _amount);
+
+    address _delegation = address(DelegatePosition(_computeAddress(_delegator, _slot)));
+    _requireContract(_delegation);
+
+    stakedAmount[_delegator] -= _amount;
+
+    IERC20(ticket).safeTransfer(_delegation, _amount);
+
+    emit DelegationFunded(_delegation, msg.sender, _slot, _amount);
   }
 
   /**
@@ -466,5 +494,13 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
    */
   function _requireDelegatedPositionUnlocked(DelegatePosition _delegatedPosition) internal view {
     require(block.timestamp > _delegatedPosition.lockUntil(), "TWABDelegator/delegation-locked");
+  }
+
+  /**
+   * @notice Require to verify that the address passed is a contract.
+   * @param _address Address to check
+   */
+  function _requireContract(address _address) internal view {
+    require(_address.isContract(), "TWABDelegator/not-a-contract");
   }
 }

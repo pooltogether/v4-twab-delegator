@@ -8,8 +8,10 @@ const { constants, provider, utils } = ethers;
 const { AddressZero, MaxUint256, Zero } = constants;
 const { parseEther: toWei } = utils;
 
+import { permitSignature } from './utils/permitSignature'
 import { getEvents as getEventsUtil } from './utils/getEvents';
 import { increaseTime as increaseTimeUtil } from './utils/increaseTime';
+
 
 const getEvents = (tx: Transaction, contract: Contract) => getEventsUtil(provider, tx, contract);
 const increaseTime = (time: number) => increaseTimeUtil(provider, time);
@@ -696,17 +698,72 @@ describe('Test Set Name', () => {
     });
   });
 
+
+  describe('multicall()', () => {
+    it('should allow a user to run multiple transactions in one go', async () => {
+      const amount = toWei('1000')
+      await ticket.mint(owner.address, amount);
+      await ticket.approve(twabDelegator.address, amount);
+
+      const stakeTx = await twabDelegator.populateTransaction.stake(
+        owner.address,
+        amount
+      )
+
+      const createDelegationTx = await twabDelegator.populateTransaction.createDelegation(
+        owner.address,
+        0,
+        firstDelegatee.address,
+        amount,
+        0
+      )
+
+      await twabDelegator.multicall(
+        [
+          stakeTx.data,
+          createDelegationTx.data  
+        ]
+      )
+    });
+  });
+
   describe('permitAndMulticall()', () => {
     it('should allow a user to stake in one transaction', async () => {
-      await twabDelegator.setRepresentative(representative.address);
+      const amount = toWei('1000')
+      await ticket.mint(owner.address, amount);
+      
+      const signature = await permitSignature({
+        permitToken: ticket.address,
+        fromWallet: owner,
+        spender: twabDelegator.address,
+        amount,
+        provider
+      })
 
-      expect(await twabDelegator.removeRepresentative(representative.address))
-        .to.emit(twabDelegator, 'RepresentativeRemoved')
-        .withArgs(owner.address, representative.address);
+      const stakeTx = await twabDelegator.populateTransaction.stake(
+        owner.address,
+        amount
+      )
 
-      expect(await twabDelegator.representative(owner.address, representative.address)).to.eq(
-        false,
-      );
+      const createDelegationTx = await twabDelegator.populateTransaction.createDelegation(
+        owner.address,
+        0,
+        firstDelegatee.address,
+        amount,
+        0
+      )
+
+      await twabDelegator.permitAndMulticall(
+        owner.address,
+        amount,
+        { v: signature.v, r: signature.r, s: signature.s, deadline: signature.deadline },
+        [
+          stakeTx.data,
+          createDelegationTx.data  
+        ]
+      )
     });
   });
 });
+
+

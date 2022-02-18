@@ -107,7 +107,12 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
    * @param amount Amount of tokens undelegated
    * @param user Address of the user who destroyed the delegated position
    */
-  event DelegationDestroyed(address indexed delegator, uint256 indexed slot, uint256 amount, address user);
+  event WithdrewDelegationToStake(
+    address indexed delegator,
+    uint256 indexed slot,
+    uint256 amount,
+    address user
+  );
 
   /**
    * @notice Emmited when a representative is set
@@ -225,7 +230,14 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
     DelegatePosition _delegatedPosition = _createDelegatedPosition(_delegator, _slot, _lockUntil);
     _delegateCall(_delegatedPosition, _delegatee);
 
-    emit DelegationCreated(_delegator, _slot, _lockUntil, _delegatee, _delegatedPosition, msg.sender);
+    emit DelegationCreated(
+      _delegator,
+      _slot,
+      _lockUntil,
+      _delegatee,
+      _delegatedPosition,
+      msg.sender
+    );
   }
 
   /**
@@ -310,7 +322,7 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
    * @dev Only callable by the `_delegator` or his representative.
    * @dev Will revert if delegated position is still locked.
    */
-  function destroyDelegation(address _delegator, uint256 _slot) external {
+  function withdrawDelegationToStake(address _delegator, uint256 _slot) external {
     _requireDelegatorOrRepresentative(_delegator);
 
     DelegatePosition _delegatedPosition = DelegatePosition(_computeAddress(_delegator, _slot));
@@ -319,15 +331,13 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
     uint256 _balanceBefore = ticket.balanceOf(address(this));
 
     _withdrawCall(_delegatedPosition);
-    _delegateCall(_delegatedPosition, address(0));
-    _delegatedPosition.destroy(payable(_delegator));
 
     uint256 _balanceAfter = ticket.balanceOf(address(this));
     uint256 _burntAmount = _balanceAfter - _balanceBefore;
 
     stakedAmount[_delegator] += _burntAmount;
 
-    emit DelegationDestroyed(_delegator, _slot, _burntAmount, msg.sender);
+    emit WithdrewDelegationToStake(_delegator, _slot, _burntAmount, msg.sender);
   }
 
   /**
@@ -354,6 +364,15 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
     representative[msg.sender][_representative] = false;
 
     emit RepresentativeRemoved(msg.sender, _representative);
+  }
+
+  /**
+   * @notice Allows a user to call multiple functions on the same contract.  Useful for EOA who want to batch transactions.
+   * @param _data An array of encoded function calls.  The calls must be abi-encoded calls to this contract.
+   * @return results The results from each function call
+   */
+  function multicall(bytes[] calldata _data) external returns (bytes[] memory results) {
+    return _multicall(_data);
   }
 
   /**
@@ -404,7 +423,11 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
    * @param _slot The slot for which they are staking
    * @return The address of the delegation position.  This is the address that holds the balance of tickets.
    */
-  function computeDelegationPositionAddress(address _staker, uint256 _slot) external view returns (address) {
+  function computeDelegationPositionAddress(address _staker, uint256 _slot)
+    external
+    view
+    returns (address)
+  {
     return _computeAddress(_staker, _slot);
   }
 

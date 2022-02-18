@@ -298,6 +298,42 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
     _permitAndMulticall(IERC20Permit(address(ticket)), _from, _amount, _permitSignature, _data);
   }
 
+  /**
+   * @notice Allows the caller to easily get the details for a delegation position.
+   * @param _staker The address whose stake it is
+   * @param _slot The delegation slot they are using
+   * @return delegationPosition The address of the delegation position that holds ticket
+   * @return delegatee The address that the position is delegating to
+   * @return balance The balance of tickets held by the position
+   * @return lockUntil The timestamp at which the position unlocks
+   */
+  function getDelegationPosition(address _staker, uint256 _slot)
+    external
+    view
+    returns (
+      address delegationPosition,
+      address delegatee,
+      uint256 balance,
+      uint256 lockUntil
+    )
+  {
+    DelegatePosition _delegatedPosition = DelegatePosition(_computeAddress(_staker, _slot));
+    delegationPosition = address(_delegatedPosition);
+    delegatee = ticket.delegateOf(address(_delegatedPosition));
+    balance = ticket.balanceOf(address(_delegatedPosition));
+    lockUntil = _delegatedPosition.lockUntil();
+  }
+
+  /**
+   * @notice Computes the address of the delegated position for the staker + slot combination
+   * @param _staker The user who is staking tickets
+   * @param _slot The slot for which they are staking
+   * @return The address of the delegation position.  This is the address that holds the balance of tickets.
+   */
+  function computeDelegationPositionAddress(address _staker, uint256 _slot) external view returns (address) {
+    return _computeAddress(_staker, _slot);
+  }
+
   /* ============ Internal Functions ============ */
 
   /**

@@ -14,6 +14,33 @@
 
 The PoolTogether V4 TWAB Delegator contract allows accounts to easily delegate their chance of winning to other accounts. See the [PoolTogether V4 Docs](https://dev.pooltogether.com) for more details on chance and the TWAB.
 
+There are three roles that relate to this contract:
+
+- Delegators
+- Delegatees
+- Representatives
+
+**Delegators**
+
+Delegators are accounts that want to delegate their chance to win to another account. They do so using delegation "slots", which are simply indexed by a uint256.  Each delegation slot corresponds to a smart contract deployed as a minimal proxy. This contract holds the tickets and delegates the chance of the held tickets to the delegatee.
+
+So the Delegator user flow looks like so:
+
+1. Delegator creates a delegation for the given slot
+```
+// createDelegation(address delegatorAddress, uint256 slotIndex, address delegatee, uint256 lockDuration)
+
+
+```
+
+
+
+
+
+
+Each delegator has delegation "slots", each of which corresponds to a Delegation contract deployed via 
+
+
 - Accounts can delegate the chance of a portion of their tickets to another account
 - Accounts have "delegation slots" indexed from 0 to 2^256-1. Each slot is a separate delegation.
 - A delegation slot has a delegatee and an optional unlock date. If the unlock date is in the future, the delegation cannot be changed until that time has passed.

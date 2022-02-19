@@ -19,10 +19,10 @@ contract DelegatePosition {
   address private _owner;
 
   /// @notice Timestamp until which the delegated position is locked.
-  uint256 public lockUntil;
+  uint96 public lockUntil;
 
   /// @notice Initializes the delegate position
-  function initialize(uint256 _lockUntil) public {
+  function initialize(uint96 _lockUntil) public {
     require(_owner == address(0), "DelegatePosition/already-init");
     _owner = msg.sender;
     lockUntil = _lockUntil;
@@ -42,12 +42,11 @@ contract DelegatePosition {
   }
 
   /**
-   * @notice Destroys this contract using `selfdestruct`.
-   * @param to The address to send remaining Ether to
+   * @notice Set the timestamp until which the delegated position is locked.
+   * @param _lockUntil The timestamp until which the delegated position is locked
    */
-  function destroy(address payable to) external onlyOwner {
-    delete _owner;
-    selfdestruct(to);
+  function setLockUntil(uint96 _lockUntil) external onlyOwner {
+    lockUntil = _lockUntil;
   }
 
   /**

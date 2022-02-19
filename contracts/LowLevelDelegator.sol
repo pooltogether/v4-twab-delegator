@@ -16,7 +16,7 @@ contract LowLevelDelegator {
   /// @notice Contract constructor
   constructor() {
     delegatePositionInstance = new DelegatePosition();
-    delegatePositionInstance.initialize(0);
+    delegatePositionInstance.initialize(uint96(0));
   }
 
   /**
@@ -25,7 +25,7 @@ contract LowLevelDelegator {
    * @param _lockUntil Timestamp until which the delegated position is locked
    * @return The newly created delegated position
    */
-  function _createDelegation(bytes32 _salt, uint256 _lockUntil)
+  function _createDelegation(bytes32 _salt, uint96 _lockUntil)
     internal
     returns (DelegatePosition)
   {

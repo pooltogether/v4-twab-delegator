@@ -63,12 +63,14 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
    * @param delegator Address of the delegator
    * @param slot Slot of the delegated position
    * @param delegatee Address of the delegatee
+   * @param lockUntil Timestamp until which the delegated position is locked
    * @param user Address of the user who updated the delegatee
    */
   event DelegateeUpdated(
     address indexed delegator,
     uint256 indexed slot,
     address indexed delegatee,
+    uint96 lockUntil,
     address user
   );
 
@@ -232,13 +234,13 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
     address _delegator,
     uint256 _slot,
     address _delegatee,
-    uint256 _lockDuration
+    uint96 _lockDuration
   ) external {
     _requireDelegatorOrRepresentative(_delegator);
     _requireDelegateeNotZeroAddress(_delegatee);
-    require(_lockDuration <= MAX_LOCK, "TWABDelegator/lock-too-long");
+    _requireLockDuration(_lockDuration);
 
-    uint256 _lockUntil = block.timestamp + _lockDuration;
+    uint96 _lockUntil = uint96(block.timestamp) + _lockDuration;
     DelegatePosition _delegatedPosition = _createDelegatedPosition(_delegator, _slot, _lockUntil);
     _delegateCall(_delegatedPosition, _delegatee);
 
@@ -260,21 +262,30 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
    * @param _delegator Address of the delegator
    * @param _slot Slot of the delegated position
    * @param _delegatee Address of the delegatee
+   * @param _lockDuration Time during which the delegated position cannot be destroyed or updated
    */
   function updateDelegatee(
     address _delegator,
     uint256 _slot,
-    address _delegatee
+    address _delegatee,
+    uint96 _lockDuration
   ) external {
     _requireDelegatorOrRepresentative(_delegator);
     _requireDelegateeNotZeroAddress(_delegatee);
+    _requireLockDuration(_lockDuration);
 
     DelegatePosition _delegatedPosition = DelegatePosition(_computeAddress(_delegator, _slot));
     _requireDelegatedPositionUnlocked(_delegatedPosition);
 
+    uint96 _lockUntil = uint96(block.timestamp) + _lockDuration;
+
+    if (_lockDuration > 0) {
+      _delegatedPosition.setLockUntil(_lockUntil);
+    }
+
     _delegateCall(_delegatedPosition, _delegatee);
 
-    emit DelegateeUpdated(_delegator, _slot, _delegatee, msg.sender);
+    emit DelegateeUpdated(_delegator, _slot, _delegatee, _lockUntil, msg.sender);
   }
 
   /**
@@ -482,7 +493,7 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
   function _createDelegatedPosition(
     address _delegator,
     uint256 _slot,
-    uint256 _lockUntil
+    uint96 _lockUntil
   ) internal returns (DelegatePosition) {
     return _createDelegation(_computeSalt(_delegator, bytes32(_slot)), _lockUntil);
   }
@@ -617,5 +628,13 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
    */
   function _requireContract(address _address) internal view {
     require(_address.isContract(), "TWABDelegator/not-a-contract");
+  }
+
+  /**
+   * @notice Require to verify that a lock duration does not exceed the maximum lock duration.
+   * @param _lockDuration Lock duration to check
+   */
+  function _requireLockDuration(uint256 _lockDuration) internal pure {
+    require(_lockDuration <= MAX_LOCK, "TWABDelegator/lock-too-long");
   }
 }

@@ -16,6 +16,9 @@ const getEvents = (tx: Transaction, contract: Contract) => getEventsUtil(provide
 const increaseTime = (time: number) => increaseTimeUtil(provider, time);
 
 const MAX_EXPIRY = 5184000; // 60 days
+
+const getTimestamp = async () => (await provider.getBlock('latest')).timestamp;
+
 const getMaxExpiryTimestamp = async () =>
   (await provider.getBlock('latest')).timestamp + MAX_EXPIRY;
 
@@ -322,9 +325,9 @@ describe('Test Set Name', () => {
     it('should allow a delegator to transfer a delegation to another delegatee', async () => {
       await increaseTime(MAX_EXPIRY + 1);
 
-      expect(await twabDelegator.updateDelegatee(owner.address, 0, secondDelegatee.address))
+      expect(await twabDelegator.updateDelegatee(owner.address, 0, secondDelegatee.address, 0))
         .to.emit(twabDelegator, 'DelegateeUpdated')
-        .withArgs(owner.address, 0, secondDelegatee.address, owner.address);
+        .withArgs(owner.address, 0, secondDelegatee.address, await getTimestamp(), owner.address);
 
       const firstDelegateeAccountDetails = await ticket.getAccountDetails(firstDelegatee.address);
       expect(firstDelegateeAccountDetails.balance).to.eq(Zero);
@@ -339,10 +342,21 @@ describe('Test Set Name', () => {
       expect(await ticket.delegateOf(delegatedPositionAddress)).to.eq(secondDelegatee.address);
     });
 
+    it('should allow a delegator update the lock duration', async () => {
+      await increaseTime(MAX_EXPIRY + 1);
+
+      expect(await twabDelegator.updateDelegatee(owner.address, 0, secondDelegatee.address, MAX_EXPIRY))
+        .to.emit(twabDelegator, 'DelegateeUpdated')
+        .withArgs(owner.address, 0, secondDelegatee.address, await getMaxExpiryTimestamp(), owner.address);
+
+      const delegatedPosition = await twabDelegator.getDelegationPosition(owner.address, 0);
+      expect(delegatedPosition.lockUntil).to.equal(await getTimestamp() + MAX_EXPIRY);
+    });
+
     it('should allow a delegator to destroy a delegated position that was transferred to another user', async () => {
       await increaseTime(MAX_EXPIRY + 1);
 
-      await twabDelegator.updateDelegatee(owner.address, 0, secondDelegatee.address);
+      await twabDelegator.updateDelegatee(owner.address, 0, secondDelegatee.address, 0);
 
       expect(await twabDelegator.withdrawDelegationToStake(owner.address, 0, amount))
         .to.emit(twabDelegator, 'WithdrewDelegationToStake')
@@ -363,25 +377,25 @@ describe('Test Set Name', () => {
 
     it('should fail to update a delegatee if caller is not the delegator or representative of the delegated position', async () => {
       await expect(
-        twabDelegator.connect(stranger).updateDelegatee(owner.address, 0, secondDelegatee.address),
+        twabDelegator.connect(stranger).updateDelegatee(owner.address, 0, secondDelegatee.address, 0),
       ).to.be.revertedWith('TWABDelegator/not-delegator-or-rep');
     });
 
     it('should fail to update a delegatee if delegatee address passed is address zero', async () => {
-      await expect(twabDelegator.updateDelegatee(owner.address, 0, AddressZero)).to.be.revertedWith(
+      await expect(twabDelegator.updateDelegatee(owner.address, 0, AddressZero, 0)).to.be.revertedWith(
         'TWABDelegator/dlgt-not-zero-adr',
       );
     });
 
     it('should fail to update an inexistent delegated position', async () => {
       await expect(
-        twabDelegator.updateDelegatee(owner.address, 1, secondDelegatee.address),
+        twabDelegator.updateDelegatee(owner.address, 1, secondDelegatee.address, 0),
       ).to.be.revertedWith('Transaction reverted: function call to a non-contract account');
     });
 
     it('should fail to update a delegatee if delegation is still locked', async () => {
       await expect(
-        twabDelegator.updateDelegatee(owner.address, 0, secondDelegatee.address),
+        twabDelegator.updateDelegatee(owner.address, 0, secondDelegatee.address, 0),
       ).to.be.revertedWith('TWABDelegator/delegation-locked');
     });
   });

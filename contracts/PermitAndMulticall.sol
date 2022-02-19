@@ -6,10 +6,9 @@ import "@openzeppelin/contracts/token/ERC20/extensions/draft-IERC20Permit.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 
 /**
-  * @notice Allows a user to permit token spend and then call multiple functions on a contract
-  */
+ * @notice Allows a user to permit token spend and then call multiple functions on a contract
+ */
 contract PermitAndMulticall {
-
   /**
    * @notice Secp256k1 signature values.
    * @param deadline Timestamp at which the signature expires
@@ -29,15 +28,6 @@ contract PermitAndMulticall {
    * @param _data An array of encoded function calls.  The calls must be abi-encoded calls to this contract.
    * @return results The results from each function call
    */
-  function multicall(bytes[] calldata _data) external returns (bytes[] memory results) {
-    return _multicall(_data);
-  }
-
-  /**
-   * @notice Allows a user to call multiple functions on the same contract.  Useful for EOA who want to batch transactions.
-   * @param _data An array of encoded function calls.  The calls must be abi-encoded calls to this contract.
-   * @return results The results from each function call
-   */
   function _multicall(bytes[] calldata _data) internal virtual returns (bytes[] memory results) {
     results = new bytes[](_data.length);
     for (uint256 i = 0; i < _data.length; i++) {
@@ -47,11 +37,11 @@ contract PermitAndMulticall {
   }
 
   /**
-    * @notice Alow a user to approve ticket and run various calls in one transaction.
-    * @param _from Address of the sender
-    * @param _amount Amount of tickets to approve
-    * @param _permitSignature Permit signature
-    * @param _data Datas to call with `functionDelegateCall`
+   * @notice Alow a user to approve ticket and run various calls in one transaction.
+   * @param _from Address of the sender
+   * @param _amount Amount of tickets to approve
+   * @param _permitSignature Permit signature
+   * @param _data Datas to call with `functionDelegateCall`
    */
   function _permitAndMulticall(
     IERC20Permit _permitToken,

@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/draft-IERC20Permit.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 
 /**
- * @notice Allows a user to permit token spend and then call multiple functions on a contract
+ * @notice Allows a user to permit token spend and then call multiple functions on a contract.
  */
 contract PermitAndMulticall {
   /**

@@ -4,6 +4,7 @@ pragma solidity 0.8.6;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@pooltogether/v4-core/contracts/interfaces/ITicket.sol";
 
@@ -15,7 +16,7 @@ import "./PermitAndMulticall.sol";
   * @title Delegate chances to win to multiple accounts
   * @notice This contract allows accounts to easily delegate a portion of their tickets to multiple delegatees. The delegatees chance of winning prizes is increased by the delegated amount. If a delegator doesn't want to actively manage the delegations, then they can stake on the contract and appoint representatives.
  */
-contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
+contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   using Address for address;
   using Clones for address;
   using SafeERC20 for IERC20;
@@ -144,12 +145,6 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
   uint256 public constant MAX_LOCK = 60 days;
 
   /**
-   * @notice Staked amount per delegator address.
-   * @dev delegator => amount
-   */
-  mapping(address => uint256) internal stakedAmount;
-
-  /**
    * @notice Representative elected by the delegator to handle delegation.
    * @dev Representative can only handle delegation and cannot withdraw tickets to their wallet.
    * @dev delegator => representative => bool allowing representative to represent the delegator
@@ -162,7 +157,7 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
    * @notice Creates a new TWAB Delegator that is bound to the given ticket contract.
    * @param _ticket Address of the ticket contract
    */
-  constructor(address _ticket) LowLevelDelegator() {
+  constructor(string memory name_, string memory symbol_, address _ticket) LowLevelDelegator() ERC20(name_, symbol_) {
     require(_ticket != address(0), "TWABDelegator/tick-not-zero-addr");
     ticket = ITicket(_ticket);
 
@@ -170,15 +165,6 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
   }
 
   /* ============ External Functions ============ */
-
-  /**
-   * @notice Returns the amount of tickets staked by a `_delegator`.
-   * @param _delegator Address of the delegator
-   * @return Amount of tickets staked by the `_delegator`
-   */
-  function balanceOf(address _delegator) public view returns (uint256) {
-    return stakedAmount[_delegator];
-  }
 
   /**
    * @notice Stake `_amount` of tickets in this contract.
@@ -190,8 +176,12 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
     _requireRecipientNotZeroAddress(_to);
     _requireAmountGtZero(_amount);
 
+    uint256 _balanceBefore = ticket.balanceOf(address(this));
     IERC20(ticket).safeTransferFrom(msg.sender, address(this), _amount);
-    stakedAmount[_to] += _amount;
+    uint256 _balanceAfter = ticket.balanceOf(address(this));
+    uint256 _transferredAmount = _balanceAfter - _balanceBefore;
+
+    _mint(_to, _transferredAmount);
 
     emit TicketsStaked(_to, _amount);
   }
@@ -203,12 +193,12 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
    * @param _to Address of the recipient that will receive the tickets
    * @param _amount Amount of tickets to unstake
    */
-  function unstake(address _to, uint256 _amount) external onlyDelegator {
+  function unstake(address _to, uint256 _amount) external {
     _requireRecipientNotZeroAddress(_to);
     _requireAmountGtZero(_amount);
-    _requireAmountLtEqStakedAmount(stakedAmount[msg.sender], _amount);
 
-    stakedAmount[msg.sender] -= _amount;
+    _burn(msg.sender, _amount);
+
     IERC20(ticket).safeTransfer(_to, _amount);
 
     emit TicketsUnstaked(msg.sender, _to, _amount);
@@ -227,7 +217,7 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
     uint256 _slot,
     address _delegatee,
     uint96 _lockDuration
-  ) external {
+  ) external returns (Delegation) {
     _requireDelegatorOrRepresentative(_delegator);
     _requireDelegateeNotZeroAddress(_delegatee);
     _requireLockDuration(_lockDuration);
@@ -237,6 +227,8 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
     _delegateCall(_delegation, _delegatee);
 
     emit DelegationCreated(_delegator, _slot, _lockUntil, _delegatee, _delegation, msg.sender);
+
+    return _delegation;
   }
 
   /**
@@ -260,7 +252,7 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
     _requireLockDuration(_lockDuration);
 
     Delegation _delegation = Delegation(_computeAddress(_delegator, _slot));
-    _requireDelegatedPositionUnlocked(_delegation);
+    _requireDelegationUnlocked(_delegation);
 
     uint96 _lockUntil = uint96(block.timestamp) + _lockDuration;
 
@@ -313,12 +305,11 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
   ) external {
     _requireDelegatorOrRepresentative(_delegator);
     _requireAmountGtZero(_amount);
-    _requireAmountLtEqStakedAmount(stakedAmount[_delegator], _amount);
 
     address _delegation = address(Delegation(_computeAddress(_delegator, _slot)));
     _requireContract(_delegation);
 
-    stakedAmount[_delegator] -= _amount;
+    _burn(_delegator, _amount);
 
     IERC20(ticket).safeTransfer(_delegation, _amount);
 
@@ -350,7 +341,7 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
     uint256 _balanceAfter = ticket.balanceOf(address(this));
     uint256 _withdrawnAmount = _balanceAfter - _balanceBefore;
 
-    stakedAmount[_delegator] += _withdrawnAmount;
+    _mint(_delegator, _withdrawnAmount);
 
     emit WithdrewDelegationToStake(_delegator, _slot, _withdrawnAmount, msg.sender);
   }
@@ -542,20 +533,12 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
     uint256 _amount
   ) internal {
     _requireAmountGtZero(_amount);
-    _requireDelegatedPositionUnlocked(_delegation);
+    _requireDelegationUnlocked(_delegation);
 
     _withdrawCall(_delegation, _to, _amount);
   }
 
   /* ============ Modifier/Require Functions ============ */
-
-  /**
-   * @notice Modifier to only allow the delegator to call a function.
-   */
-  modifier onlyDelegator() {
-    require(stakedAmount[msg.sender] > 0, "TWABDelegator/only-delegator");
-    _;
-  }
 
   /**
    * @notice Require to only allow the delegator or representative to call a function.
@@ -601,19 +584,10 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
-   * @notice Require to verify that `_amount` is lower than or equal to `_stakedAmount`.
-   * @param _stakedAmount Amount of tickets staked by the delegator in this contract
-   * @param _amount Amount of tickets to check
-   */
-  function _requireAmountLtEqStakedAmount(uint256 _stakedAmount, uint256 _amount) internal pure {
-    require(_stakedAmount >= _amount, "TWABDelegator/stake-lt-amount");
-  }
-
-  /**
    * @notice Require to verify if a `_delegation` is locked.
    * @param _delegation Delegation to check
    */
-  function _requireDelegatedPositionUnlocked(Delegation _delegation) internal view {
+  function _requireDelegationUnlocked(Delegation _delegation) internal view {
     require(block.timestamp > _delegation.lockUntil(), "TWABDelegator/delegation-locked");
   }
 

@@ -35,7 +35,7 @@ describe('Test Set Name', () => {
 
   let constructorTest = false;
 
-  const getDelegatedPositionAddress = async (transaction: any) => {
+  const getDelegationAddress = async (transaction: any) => {
     const ticketEvents = await getEvents(transaction, twabDelegator);
     const delegationCreatedEvent = ticketEvents.find(
       (event) => event && event.name === 'DelegationCreated',
@@ -245,7 +245,7 @@ describe('Test Set Name', () => {
         MAX_EXPIRY,
       );
 
-      const delegationAddress = await getDelegatedPositionAddress(transaction);
+      const delegationAddress = await getDelegationAddress(transaction);
       const expiryTimestamp = await getMaxExpiryTimestamp();
 
       await expect(transaction)
@@ -317,7 +317,7 @@ describe('Test Set Name', () => {
         MAX_EXPIRY,
       );
 
-      delegationAddress = await getDelegatedPositionAddress(transaction);
+      delegationAddress = await getDelegationAddress(transaction);
 
       await twabDelegator.fundDelegationFromStake(owner.address, 0, amount);
     });
@@ -427,7 +427,7 @@ describe('Test Set Name', () => {
         firstDelegatee.address,
         MAX_EXPIRY,
       );
-      delegationAddress = await getDelegatedPositionAddress(transaction);
+      delegationAddress = await getDelegationAddress(transaction);
     });
 
     it('should allow any user to transfer tickets to a delegation', async () => {
@@ -486,7 +486,7 @@ describe('Test Set Name', () => {
         firstDelegatee.address,
         MAX_EXPIRY,
       );
-      delegationAddress = await getDelegatedPositionAddress(transaction);
+      delegationAddress = await getDelegationAddress(transaction);
     });
 
     it('should allow a delegator to transfer tickets from his stake to a delegation', async () => {
@@ -547,7 +547,7 @@ describe('Test Set Name', () => {
         MAX_EXPIRY,
       );
 
-      delegationAddress = await getDelegatedPositionAddress(transaction);
+      delegationAddress = await getDelegationAddress(transaction);
 
       await twabDelegator.fundDelegationFromStake(owner.address, 0, amount);
     });
@@ -632,7 +632,7 @@ describe('Test Set Name', () => {
         MAX_EXPIRY,
       );
 
-      delegationAddress = await getDelegatedPositionAddress(transaction);
+      delegationAddress = await getDelegationAddress(transaction);
 
       await twabDelegator.fundDelegationFromStake(owner.address, 0, amount);
     });

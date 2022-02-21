@@ -20,6 +20,7 @@
     "avoid-suicide": "error",
     "avoid-sha3": "warn",
     "not-rely-on-time": "off",
-    "reason-string": ["warn", { "maxLength": 64 }]
+    "reason-string": ["warn", { "maxLength": 64 }],
+    "avoid-low-level-calls": "off"
   }
 }

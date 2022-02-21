@@ -191,7 +191,7 @@ describe('Test Set Name', () => {
 
     it('should fail to unstake if caller is a representative', async () => {
       await twabDelegator.stake(owner.address, amount);
-      await twabDelegator.setRepresentative(representative.address);
+      await twabDelegator.setRepresentative(representative.address, true);
 
       await expect(
         twabDelegator.connect(representative).unstake(owner.address, amount),
@@ -571,7 +571,7 @@ describe('Test Set Name', () => {
 
     it('should allow a representative to withdraw from a delegation to the stake', async () => {
       await increaseTime(MAX_EXPIRY + 1);
-      await twabDelegator.setRepresentative(representative.address);
+      await twabDelegator.setRepresentative(representative.address, true);
 
       expect(
         await twabDelegator
@@ -657,7 +657,7 @@ describe('Test Set Name', () => {
 
     it('should not allow a representative to withdraw from a delegation', async () => {
       await increaseTime(MAX_EXPIRY + 1);
-      await twabDelegator.setRepresentative(representative.address);
+      await twabDelegator.setRepresentative(representative.address, true);
 
       await expect(
         twabDelegator.connect(representative).withdrawDelegation(0, amount),
@@ -691,56 +691,38 @@ describe('Test Set Name', () => {
 
   describe('setRepresentative()', () => {
     it('should set a representative', async () => {
-      expect(await twabDelegator.setRepresentative(representative.address))
+      expect(await twabDelegator.setRepresentative(representative.address, true))
         .to.emit(twabDelegator, 'RepresentativeSet')
-        .withArgs(owner.address, representative.address);
+        .withArgs(owner.address, representative.address, true);
 
       expect(await twabDelegator.representative(owner.address, representative.address)).to.eq(true);
     });
 
     it('should set several representatives', async () => {
-      expect(await twabDelegator.setRepresentative(representative.address))
+      expect(await twabDelegator.setRepresentative(representative.address, true))
         .to.emit(twabDelegator, 'RepresentativeSet')
-        .withArgs(owner.address, representative.address);
+        .withArgs(owner.address, representative.address, true);
 
       expect(await twabDelegator.representative(owner.address, representative.address)).to.eq(true);
 
-      expect(await twabDelegator.setRepresentative(stranger.address))
+      expect(await twabDelegator.setRepresentative(stranger.address, true))
         .to.emit(twabDelegator, 'RepresentativeSet')
-        .withArgs(owner.address, stranger.address);
+        .withArgs(owner.address, stranger.address, true);
 
       expect(await twabDelegator.representative(owner.address, stranger.address)).to.eq(true);
     });
 
+    it('should unset a representative', async () => {
+      expect(await twabDelegator.setRepresentative(representative.address, false))
+        .to.emit(twabDelegator, 'RepresentativeSet')
+        .withArgs(owner.address, representative.address, false);
+
+      expect(await twabDelegator.representative(owner.address, representative.address)).to.eq(false);
+    });
+
     it('should fail to set a representative if passed address is address zero', async () => {
-      await expect(twabDelegator.setRepresentative(AddressZero)).to.be.revertedWith(
+      await expect(twabDelegator.setRepresentative(AddressZero, true)).to.be.revertedWith(
         'TWABDelegator/rep-not-zero-addr',
-      );
-    });
-  });
-
-  describe('removeRepresentative()', () => {
-    it('should remove a representative', async () => {
-      await twabDelegator.setRepresentative(representative.address);
-
-      expect(await twabDelegator.removeRepresentative(representative.address))
-        .to.emit(twabDelegator, 'RepresentativeRemoved')
-        .withArgs(owner.address, representative.address);
-
-      expect(await twabDelegator.representative(owner.address, representative.address)).to.eq(
-        false,
-      );
-    });
-
-    it('should fail to remove a representative if passed address is address zero', async () => {
-      await expect(twabDelegator.removeRepresentative(AddressZero)).to.be.revertedWith(
-        'TWABDelegator/rep-not-zero-addr',
-      );
-    });
-
-    it('should fail to remove a representative if passed address is not a representative', async () => {
-      await expect(twabDelegator.removeRepresentative(stranger.address)).to.be.revertedWith(
-        'TWABDelegator/rep-not-set',
       );
     });
   });

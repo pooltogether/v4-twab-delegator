@@ -380,6 +380,8 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
     uint256 _amount,
     address _to
   ) external returns (Delegation) {
+    _requireRecipientNotZeroAddress(_to);
+
     Delegation _delegation = Delegation(_computeAddress(msg.sender, _slot));
     _transfer(_delegation, _to, _amount);
 

@@ -7,13 +7,13 @@ import "../TWABDelegator.sol";
 contract TWABDelegatorHarness is TWABDelegator {
   constructor(address _ticket) TWABDelegator(_ticket) {}
 
-  function executeCall(DelegatePosition _delegatedPosition, bytes memory _data)
+  function executeCall(Delegation _delegation, bytes memory _data)
     external
     returns (bytes[] memory)
   {
-    DelegatePosition.Call[] memory _calls = new DelegatePosition.Call[](1);
-    _calls[0] = DelegatePosition.Call({ to: address(ticket), value: 0, data: _data });
+    Delegation.Call[] memory _calls = new Delegation.Call[](1);
+    _calls[0] = Delegation.Call({ to: address(ticket), value: 0, data: _data });
 
-    return _delegatedPosition.executeCalls(_calls);
+    return _delegation.executeCalls(_calls);
   }
 }

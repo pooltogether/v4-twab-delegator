@@ -4,33 +4,31 @@ pragma solidity 0.8.6;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
 
-import "./DelegatePosition.sol";
+import "./Delegation.sol";
 
-/// @title The LowLevelDelegator allows users to create delegated positions very cheaply.
+/// @title The LowLevelDelegator allows users to create delegations very cheaply.
 contract LowLevelDelegator {
   using Clones for address;
 
-  /// @notice The instance to which all proxies will point
-  DelegatePosition public delegatePositionInstance;
+  /// @notice The instance to which all proxies will point.
+  Delegation public delegationInstance;
 
-  /// @notice Contract constructor
+  /// @notice Contract constructor.
   constructor() {
-    delegatePositionInstance = new DelegatePosition();
-    delegatePositionInstance.initialize(uint96(0));
+    delegationInstance = new Delegation();
+    delegationInstance.initialize(uint96(0));
   }
 
   /**
-   * @notice Creates a clone of the delegated position.
+   * @notice Creates a clone of the delegation.
    * @param _salt Random number used to deterministically deploy the clone
-   * @param _lockUntil Timestamp until which the delegated position is locked
-   * @return The newly created delegated position
+   * @param _lockUntil Timestamp until which the delegation is locked
+   * @return The newly created delegation
    */
-  function _createDelegation(bytes32 _salt, uint96 _lockUntil) internal returns (DelegatePosition) {
-    DelegatePosition _delegatedPosition = DelegatePosition(
-      address(delegatePositionInstance).cloneDeterministic(_salt)
-    );
-    _delegatedPosition.initialize(_lockUntil);
-    return _delegatedPosition;
+  function _createDelegation(bytes32 _salt, uint96 _lockUntil) internal returns (Delegation) {
+    Delegation _delegation = Delegation(address(delegationInstance).cloneDeterministic(_salt));
+    _delegation.initialize(_lockUntil);
+    return _delegation;
   }
 
   /**
@@ -39,13 +37,13 @@ contract LowLevelDelegator {
    * @return Address at which the clone will be deployed
    */
   function _computeAddress(bytes32 _salt) internal view returns (address) {
-    return address(delegatePositionInstance).predictDeterministicAddress(_salt, address(this));
+    return address(delegationInstance).predictDeterministicAddress(_salt, address(this));
   }
 
   /**
-   * @notice Compute salt used to deterministically deploy a clone.
+   * @notice Computes salt used to deterministically deploy a clone.
    * @param _delegator Address of the delegator
-   * @param _slot Slot of the delegated position
+   * @param _slot Slot of the delegation
    * @return Salt used to deterministically deploy a clone.
    */
   function _computeSalt(address _delegator, bytes32 _slot) internal pure returns (bytes32) {

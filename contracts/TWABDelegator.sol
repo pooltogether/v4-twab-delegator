@@ -13,9 +13,8 @@ import "./LowLevelDelegator.sol";
 import "./PermitAndMulticall.sol";
 
 /**
- * @title Contract to delegate chances of winning to multiple delegatees.
- * @dev Delegations are instantiated via CREATE2 through the LowLevelDelegator contract by calling `_createDelegation`.
- * @dev Delegators and their representatives can then handle their delegations through this contract.
+  * @title Delegate chances to win to multiple accounts
+  * @notice This contract allows accounts to easily delegate a portion of their tickets to multiple delegatees. The delegatees chance of winning prizes is increased by the delegated amount. If a delegator doesn't want to actively manage the delegations, then they can stake on the contract and appoint representatives.
  */
 contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   using Address for address;
@@ -155,8 +154,8 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   /* ============ Constructor ============ */
 
   /**
-   * @notice Contract constructor.
-   * @param _ticket Address of the prize pool ticket
+   * @notice Creates a new TWAB Delegator that is bound to the given ticket contract.
+   * @param _ticket Address of the ticket contract
    */
   constructor(string memory name_, string memory symbol_, address _ticket) LowLevelDelegator() ERC20(name_, symbol_) {
     require(_ticket != address(0), "TWABDelegator/tick-not-zero-addr");
@@ -206,13 +205,12 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
-   * @notice Creates a new delegation.
-   * @dev Callable by anyone.
+   * @notice Creates a new delegation. This will create a new Delegation contract for the given slot and have it delegate its tickets to the given delegatee. If a non-zero lock duration is passed, then the delegatee cannot be changed, nor funding withdrawn, until the lock has expired.
    * @dev The `_delegator` and `_slot` params are used to compute the salt of the delegation.
    * @param _delegator Address of the delegator that will be able to handle the delegation
    * @param _slot Slot of the delegation
    * @param _delegatee Address of the delegatee
-   * @param _lockDuration Time during which the delegation cannot be updated
+   * @param _lockDuration Duration of time for which the delegation is locked.
    */
   function createDelegation(
     address _delegator,
@@ -234,7 +232,7 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
-   * @notice Update a delegation `delegatee` and `amount` delegated.
+   * @notice Updates the delegatee and lock duration for a delegation slot. 
    * @dev Only callable by the `_delegator` or his representative.
    * @dev Will revert if staked amount is less than `_amount`.
    * @dev Will revert if delegation is still locked.
@@ -268,12 +266,12 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
-   * @notice Fund a delegation.
+   * @notice Fund a delegation by transferring tickets from the caller to the delegation.
    * @dev Callable by anyone.
    * @dev Will revert if delegation does not exist.
    * @param _delegator Address of the delegator
    * @param _slot Slot of the delegation
-   * @param _amount Amount of tickets to delegate and send to the delegation
+   * @param _amount Amount of tickets to transfer
    */
   function fundDelegation(
     address _delegator,
@@ -292,8 +290,8 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
-   * @notice Fund a delegation using `_amount` of tokens that has been staked by the `_delegator`.
-   * @dev Callable only by the `_delegator` or his representative.
+   * @notice Fund a delegation using the `_delegator` stake.
+   * @dev Callable only by the `_delegator` or their representative.
    * @dev Will revert if delegation does not exist.
    * @dev Will revert if `_amount` is greater than the staked amount.
    * @param _delegator Address of the delegator
@@ -319,8 +317,8 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
-   * @notice Withdraw an amount of tickets from a delegation to this contract.
-   * @dev Only callable by the `_delegator` or his representative.
+   * @notice Withdraw tickets from a delegation slot. The tickets will be held by this contract and the delegator's stake will increase.
+   * @dev Only callable by the `_delegator` or their representative.
    * @dev Will send the tickets to this contract and increase the `_delegator` staked amount.
    * @dev Will revert if delegation is still locked.
    * @param _delegator Address of the delegator
@@ -349,7 +347,7 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
-   * @notice Withdraw an `_amount` of tickets from a delegation to the delegator wallet.
+   * @notice Withdraw an `_amount` of tickets from a delegation. The delegator is assumed to be the caller. The tickets are transferred to the caller.
    * @dev Only callable by the delegator of the delegation.
    * @dev Will directly send the tickets to the delegator wallet.
    * @dev Will revert if delegation is still locked.
@@ -379,7 +377,7 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
-   * @notice Allows a user to call multiple functions on the same contract.  Useful for EOA who want to batch transactions.
+   * @notice Allows a user to call multiple functions on the same contract.  Useful for EOA who wants to batch transactions.
    * @param _data An array of encoded function calls.  The calls must be abi-encoded calls to this contract.
    * @return results The results from each function call
    */

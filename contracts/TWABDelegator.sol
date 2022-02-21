@@ -262,7 +262,7 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
     _requireLockDuration(_lockDuration);
 
     Delegation _delegation = Delegation(_computeAddress(_delegator, _slot));
-    _requireDelegatedPositionUnlocked(_delegation);
+    _requireDelegationUnlocked(_delegation);
 
     uint96 _lockUntil = uint96(block.timestamp) + _lockDuration;
 
@@ -544,7 +544,7 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
     uint256 _amount
   ) internal {
     _requireAmountGtZero(_amount);
-    _requireDelegatedPositionUnlocked(_delegation);
+    _requireDelegationUnlocked(_delegation);
 
     _withdrawCall(_delegation, _to, _amount);
   }
@@ -615,7 +615,7 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
    * @notice Require to verify if a `_delegation` is locked.
    * @param _delegation Delegation to check
    */
-  function _requireDelegatedPositionUnlocked(Delegation _delegation) internal view {
+  function _requireDelegationUnlocked(Delegation _delegation) internal view {
     require(block.timestamp > _delegation.lockUntil(), "TWABDelegator/delegation-locked");
   }
 

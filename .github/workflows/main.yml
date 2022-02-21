@@ -17,7 +17,7 @@ jobs:
           yarn compile
           yarn hint
           yarn coverage
-      - name: Coveralls
+      - name: Tests
         uses: coverallsapp/github-action@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

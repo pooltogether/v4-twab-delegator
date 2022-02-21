@@ -248,7 +248,7 @@ describe('Test Set Name', () => {
       const delegationAddress = await getDelegatedPositionAddress(transaction);
       const expiryTimestamp = await getMaxExpiryTimestamp();
 
-      await expect(await transaction)
+      await expect(transaction)
         .to.emit(twabDelegator, 'DelegationCreated')
         .withArgs(
           owner.address,

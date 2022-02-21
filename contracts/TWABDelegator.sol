@@ -12,9 +12,9 @@ import "./LowLevelDelegator.sol";
 import "./PermitAndMulticall.sol";
 
 /**
-  * @title Contract to delegate chances of winning to multiple delegatees.
-  * @dev Delegations are instantiated via CREATE2 through the LowLevelDelegator contract by calling `_createDelegation`.
-  * @dev Delegators and their representatives can then handle their delegations through this contract.
+ * @title Contract to delegate chances of winning to multiple delegatees.
+ * @dev Delegations are instantiated via CREATE2 through the LowLevelDelegator contract by calling `_createDelegation`.
+ * @dev Delegators and their representatives can then handle their delegations through this contract.
  */
 contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
   using Address for address;
@@ -229,7 +229,7 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
     uint256 _slot,
     address _delegatee,
     uint96 _lockDuration
-  ) external {
+  ) external returns (Delegation) {
     _requireDelegatorOrRepresentative(_delegator);
     _requireDelegateeNotZeroAddress(_delegatee);
     _requireLockDuration(_lockDuration);
@@ -239,6 +239,8 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
     _delegateCall(_delegation, _delegatee);
 
     emit DelegationCreated(_delegator, _slot, _lockUntil, _delegatee, _delegation, msg.sender);
+
+    return _delegation;
   }
 
   /**

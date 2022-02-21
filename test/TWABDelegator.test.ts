@@ -48,7 +48,11 @@ describe('Test Set Name', () => {
       'TWABDelegatorHarness',
     );
 
-    return await twabDelegatorContractFactory.deploy(ticketAddress);
+    return await twabDelegatorContractFactory.deploy(
+      'PoolTogether Staked aUSDC Ticket',
+      'stkPTaUSDC',
+      ticketAddress
+    );
   };
 
   beforeEach(async () => {
@@ -189,18 +193,9 @@ describe('Test Set Name', () => {
       expect(await ticket.balanceOf(stranger.address)).to.eq(amount);
     });
 
-    it('should fail to unstake if caller is a representative', async () => {
-      await twabDelegator.stake(owner.address, amount);
-      await twabDelegator.setRepresentative(representative.address, true);
-
-      await expect(
-        twabDelegator.connect(representative).unstake(owner.address, amount),
-      ).to.be.revertedWith('TWABDelegator/only-delegator');
-    });
-
     it('should fail to unstake if caller has no stake', async () => {
       await expect(twabDelegator.unstake(owner.address, amount)).to.be.revertedWith(
-        'TWABDelegator/only-delegator',
+        'ERC20: burn amount exceeds balance',
       );
     });
 
@@ -224,7 +219,7 @@ describe('Test Set Name', () => {
       await twabDelegator.stake(owner.address, amount);
 
       await expect(twabDelegator.unstake(owner.address, toWei('1500'))).to.be.revertedWith(
-        'TWABDelegator/stake-lt-amount',
+        'ERC20: burn amount exceeds balance',
       );
     });
   });
@@ -521,7 +516,7 @@ describe('Test Set Name', () => {
     it('should fail to transfer tickets to a delegation if amount passed is greater than amount staked', async () => {
       await expect(
         twabDelegator.fundDelegationFromStake(owner.address, 0, amount.mul(2)),
-      ).to.be.revertedWith('TWABDelegator/stake-lt-amount');
+      ).to.be.revertedWith('ERC20: burn amount exceeds balance');
     });
 
     it('should fail to fund an inexistent delegation', async () => {

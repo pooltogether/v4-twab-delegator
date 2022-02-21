@@ -360,7 +360,7 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
    * @dev Only callable by the delegator of the delegation.
    * @dev Will directly send the tickets to the delegator wallet.
    * @dev Will revert if delegation is still locked.
-   * @param _slot Slot of the delegation.
+   * @param _slot Slot of the delegation
    * @param _amount Amount to withdraw
    */
   function withdrawDelegation(uint256 _slot, uint256 _amount) external {

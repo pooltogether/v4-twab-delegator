@@ -128,15 +128,9 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
    * @notice Emmited when a representative is set
    * @param delegator Address of the delegator
    * @param representative Amount of the representative
+   * @param set Boolean indicating if the representative was set or unset
    */
-  event RepresentativeSet(address indexed delegator, address indexed representative);
-
-  /**
-   * @notice Emmited when a representative is removed
-   * @param delegator Address of the delegator
-   * @param representative Amount of the representative
-   */
-  event RepresentativeRemoved(address indexed delegator, address indexed representative);
+  event RepresentativeSet(address indexed delegator, address indexed representative, bool set);
 
   /* ============ Variables ============ */
 
@@ -380,29 +374,18 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
-   * @notice Allow a `msg.sender` to set a `_representative` to handle delegation.
+   * @notice Allow a `msg.sender` to set or unset a `_representative` to handle delegation.
+   * @dev If `_set` is `true`, `_representative` will be set as representative of `msg.sender`.
+   * @dev If `_set` is `false`, `_representative` will be unset as representative of `msg.sender`.
    * @param _representative Address of the representative
+   * @param _set Set or unset the representative
    */
-  function setRepresentative(address _representative) external {
+  function setRepresentative(address _representative, bool _set) external {
     require(_representative != address(0), "TWABDelegator/rep-not-zero-addr");
 
-    representative[msg.sender][_representative] = true;
+    representative[msg.sender][_representative] = _set;
 
-    emit RepresentativeSet(msg.sender, _representative);
-  }
-
-  /**
-   * @notice Allow `msg.sender` to remove a `_representative` associated to his address.
-   * @dev Will revert if `_representative` is not associated to `msg.sender`.
-   * @param _representative Address of the representative
-   */
-  function removeRepresentative(address _representative) external {
-    require(_representative != address(0), "TWABDelegator/rep-not-zero-addr");
-    require(representative[msg.sender][_representative], "TWABDelegator/rep-not-set");
-
-    representative[msg.sender][_representative] = false;
-
-    emit RepresentativeRemoved(msg.sender, _representative);
+    emit RepresentativeSet(msg.sender, _representative, _set);
   }
 
   /**

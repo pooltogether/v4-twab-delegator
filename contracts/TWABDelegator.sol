@@ -356,7 +356,7 @@ contract TWABDelegator is LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
-   * @notice Withdraw an `_amount` of tickets from a delegation. The delegator is assumed to the caller. The tickets are transferred to the caller.
+   * @notice Withdraw an `_amount` of tickets from a delegation. The delegator is assumed to be the caller. The tickets are transferred to the caller.
    * @dev Only callable by the delegator of the delegation.
    * @dev Will directly send the tickets to the delegator wallet.
    * @dev Will revert if delegation is still locked.

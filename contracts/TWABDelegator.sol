@@ -13,8 +13,10 @@ import "./LowLevelDelegator.sol";
 import "./PermitAndMulticall.sol";
 
 /**
-  * @title Delegate chances to win to multiple accounts
-  * @notice This contract allows accounts to easily delegate a portion of their tickets to multiple delegatees. The delegatees chance of winning prizes is increased by the delegated amount. If a delegator doesn't want to actively manage the delegations, then they can stake on the contract and appoint representatives.
+ * @title Delegate chances to win to multiple accounts.
+ * @notice This contract allows accounts to easily delegate a portion of their tickets to multiple delegatees.
+  The delegatees chance of winning prizes is increased by the delegated amount.
+  If a delegator doesn't want to actively manage the delegations, then they can stake on the contract and appoint representatives.
  */
 contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   using Address for address;
@@ -126,7 +128,12 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
    * @param slot  Slot of the delegation
    * @param amount Amount of tickets withdrawn
    */
-  event TransferredDelegation(address indexed delegator, uint256 indexed slot, uint256 amount, address indexed to);
+  event TransferredDelegation(
+    address indexed delegator,
+    uint256 indexed slot,
+    uint256 amount,
+    address indexed to
+  );
 
   /**
    * @notice Emitted when a representative is set.
@@ -159,7 +166,11 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
    * @param symbol_ The symbol for the staked ticket token
    * @param _ticket Address of the ticket contract
    */
-  constructor(string memory name_, string memory symbol_, ITicket _ticket) LowLevelDelegator() ERC20(name_, symbol_) {
+  constructor(
+    string memory name_,
+    string memory symbol_,
+    ITicket _ticket
+  ) LowLevelDelegator() ERC20(name_, symbol_) {
     require(address(_ticket) != address(0), "TWABDelegator/tick-not-zero-addr");
     ticket = _ticket;
 
@@ -177,6 +188,7 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   function stake(address _to, uint256 _amount) external {
     _requireRecipientNotZeroAddress(_to);
     _requireAmountGtZero(_amount);
+
     IERC20(ticket).safeTransferFrom(msg.sender, address(this), _amount);
     _mint(_to, _amount);
 
@@ -201,7 +213,9 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
-   * @notice Creates a new delegation. This will create a new Delegation contract for the given slot and have it delegate its tickets to the given delegatee. If a non-zero lock duration is passed, then the delegatee cannot be changed, nor funding withdrawn, until the lock has expired.
+   * @notice Creates a new delegation.
+   This will create a new Delegation contract for the given slot and have it delegate its tickets to the given delegatee.
+   If a non-zero lock duration is passed, then the delegatee cannot be changed, nor funding withdrawn, until the lock has expired.
    * @dev The `_delegator` and `_slot` params are used to compute the salt of the delegation
    * @param _delegator Address of the delegator that will be able to handle the delegation
    * @param _slot Slot of the delegation
@@ -220,7 +234,10 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
     _requireLockDuration(_lockDuration);
 
     uint96 _lockUntil = _computeLockUntil(_lockDuration);
-    Delegation _delegation = _createDelegation(_computeSalt(_delegator, bytes32(_slot)), _lockUntil);
+    Delegation _delegation = _createDelegation(
+      _computeSalt(_delegator, bytes32(_slot)),
+      _lockUntil
+    );
     _delegateCall(_delegation, _delegatee);
 
     emit DelegationCreated(_delegator, _slot, _lockUntil, _delegatee, _delegation, msg.sender);
@@ -229,13 +246,13 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
-   * @notice Updates the delegatee and lock duration for a delegation slot. 
+   * @notice Updates the delegatee and lock duration for a delegation slot.
    * @dev Only callable by the `_delegator` or their representative.
    * @dev Will revert if delegation is still locked.
    * @param _delegator Address of the delegator
    * @param _slot Slot of the delegation
    * @param _delegatee Address of the delegatee
-   * @param _lockDuration Duration of time during which the delegatee cannot be changed nor withdrawn.
+   * @param _lockDuration Duration of time during which the delegatee cannot be changed nor withdrawn
    * @return The address of the Delegation
    */
   function updateDelegatee(
@@ -358,7 +375,11 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
    * @param _to Account to transfer the withdrawn tickets to
    * @return The address of the Delegation
    */
-  function transferDelegationTo(uint256 _slot, uint256 _amount, address _to) external returns (Delegation) {
+  function transferDelegationTo(
+    uint256 _slot,
+    uint256 _amount,
+    address _to
+  ) external returns (Delegation) {
     Delegation _delegation = Delegation(_computeAddress(msg.sender, _slot));
     _transfer(_delegation, _to, _amount);
 
@@ -383,12 +404,16 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
-   * @notice Returns whether or not the given rep is a representative of the delegator
+   * @notice Returns whether or not the given rep is a representative of the delegator.
    * @param _delegator The delegator
    * @param _representative The representative to check for
    * @return True if the rep is a rep, false otherwise
    */
-  function isRepresentativeOf(address _delegator, address _representative) external view returns (bool) {
+  function isRepresentativeOf(address _delegator, address _representative)
+    external
+    view
+    returns (bool)
+  {
     return representatives[_delegator][_representative];
   }
 
@@ -465,7 +490,8 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   /* ============ Internal Functions ============ */
 
   /**
-   * @notice Computes the address of a delegation contract using the delegator and slot as a salt. The contract is a clone, also known as minimal proxy contract.
+   * @notice Computes the address of a delegation contract using the delegator and slot as a salt.
+   The contract is a clone, also known as minimal proxy contract.
    * @param _delegator Address of the delegator
    * @param _slot Slot of the delegation
    * @return Address at which the delegation contract will be deployed
@@ -484,7 +510,7 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
-   * @notice Has the Delegation contact delegate its tickets to the delegatee
+   * @notice Has the Delegation contact delegate its tickets to the delegatee.
    * @param _delegation Address of the delegation contract
    * @param _delegatee Address of the delegatee
    */

@@ -51,7 +51,7 @@ describe('Test Set Name', () => {
     return await twabDelegatorContractFactory.deploy(
       'PoolTogether Staked aUSDC Ticket',
       'stkPTaUSDC',
-      ticketAddress
+      ticketAddress,
     );
   };
 
@@ -690,7 +690,9 @@ describe('Test Set Name', () => {
         .to.emit(twabDelegator, 'RepresentativeSet')
         .withArgs(owner.address, representative.address, true);
 
-      expect(await twabDelegator.isRepresentativeOf(owner.address, representative.address)).to.eq(true);
+      expect(await twabDelegator.isRepresentativeOf(owner.address, representative.address)).to.eq(
+        true,
+      );
     });
 
     it('should set several representatives', async () => {
@@ -698,7 +700,9 @@ describe('Test Set Name', () => {
         .to.emit(twabDelegator, 'RepresentativeSet')
         .withArgs(owner.address, representative.address, true);
 
-      expect(await twabDelegator.isRepresentativeOf(owner.address, representative.address)).to.eq(true);
+      expect(await twabDelegator.isRepresentativeOf(owner.address, representative.address)).to.eq(
+        true,
+      );
 
       expect(await twabDelegator.setRepresentative(stranger.address, true))
         .to.emit(twabDelegator, 'RepresentativeSet')

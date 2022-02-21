@@ -15,7 +15,7 @@ import { increaseTime as increaseTimeUtil } from './utils/increaseTime';
 const getEvents = (tx: Transaction, contract: Contract) => getEventsUtil(provider, tx, contract);
 const increaseTime = (time: number) => increaseTimeUtil(provider, time);
 
-const MAX_EXPIRY = 5184000; // 60 days
+const MAX_EXPIRY = 15552000; // 60 days
 
 const getTimestamp = async () => (await provider.getBlock('latest')).timestamp;
 
@@ -611,7 +611,7 @@ describe('Test Set Name', () => {
     });
   });
 
-  describe('withdrawDelegation()', () => {
+  describe('transferDelegationTo()', () => {
     const amount = toWei('1000');
     let delegationAddress = '';
 
@@ -635,9 +635,9 @@ describe('Test Set Name', () => {
     it('should allow a delegator to withdraw from a delegation', async () => {
       await increaseTime(MAX_EXPIRY + 1);
 
-      expect(await twabDelegator.withdrawDelegation(0, amount))
-        .to.emit(twabDelegator, 'WithdrewDelegation')
-        .withArgs(owner.address, 0, amount);
+      expect(await twabDelegator.transferDelegationTo(0, amount, owner.address))
+        .to.emit(twabDelegator, 'TransferredDelegation')
+        .withArgs(owner.address, 0, amount, owner.address);
 
       expect(await twabDelegator.balanceOf(owner.address)).to.eq(Zero);
       expect(await ticket.balanceOf(twabDelegator.address)).to.eq(Zero);
@@ -655,30 +655,30 @@ describe('Test Set Name', () => {
       await twabDelegator.setRepresentative(representative.address, true);
 
       await expect(
-        twabDelegator.connect(representative).withdrawDelegation(0, amount),
+        twabDelegator.connect(representative).transferDelegationTo(0, amount, owner.address),
       ).to.be.revertedWith('Transaction reverted: function call to a non-contract account');
     });
 
     it('should fail to withdraw from a delegation if amount is not greater than zero', async () => {
-      await expect(twabDelegator.withdrawDelegation(0, Zero)).to.be.revertedWith(
+      await expect(twabDelegator.transferDelegationTo(0, Zero, owner.address)).to.be.revertedWith(
         'TWABDelegator/amount-gt-zero',
       );
     });
 
     it('should fail to withdraw from a delegation if caller is not the delegator', async () => {
       await expect(
-        twabDelegator.connect(stranger).withdrawDelegation(0, amount),
+        twabDelegator.connect(stranger).transferDelegationTo(0, amount, owner.address),
       ).to.be.revertedWith('Transaction reverted: function call to a non-contract account');
     });
 
     it('should fail to withdraw from an inexistent delegation', async () => {
-      await expect(twabDelegator.withdrawDelegation(1, amount)).to.be.revertedWith(
+      await expect(twabDelegator.transferDelegationTo(1, amount, owner.address)).to.be.revertedWith(
         'Transaction reverted: function call to a non-contract account',
       );
     });
 
     it('should fail to withdraw from a delegation if still locked', async () => {
-      await expect(twabDelegator.withdrawDelegation(0, amount)).to.be.revertedWith(
+      await expect(twabDelegator.transferDelegationTo(0, amount, owner.address)).to.be.revertedWith(
         'TWABDelegator/delegation-locked',
       );
     });
@@ -690,7 +690,7 @@ describe('Test Set Name', () => {
         .to.emit(twabDelegator, 'RepresentativeSet')
         .withArgs(owner.address, representative.address, true);
 
-      expect(await twabDelegator.representative(owner.address, representative.address)).to.eq(true);
+      expect(await twabDelegator.isRepresentativeOf(owner.address, representative.address)).to.eq(true);
     });
 
     it('should set several representatives', async () => {
@@ -698,13 +698,13 @@ describe('Test Set Name', () => {
         .to.emit(twabDelegator, 'RepresentativeSet')
         .withArgs(owner.address, representative.address, true);
 
-      expect(await twabDelegator.representative(owner.address, representative.address)).to.eq(true);
+      expect(await twabDelegator.isRepresentativeOf(owner.address, representative.address)).to.eq(true);
 
       expect(await twabDelegator.setRepresentative(stranger.address, true))
         .to.emit(twabDelegator, 'RepresentativeSet')
         .withArgs(owner.address, stranger.address, true);
 
-      expect(await twabDelegator.representative(owner.address, stranger.address)).to.eq(true);
+      expect(await twabDelegator.isRepresentativeOf(owner.address, stranger.address)).to.eq(true);
     });
 
     it('should unset a representative', async () => {
@@ -712,7 +712,7 @@ describe('Test Set Name', () => {
         .to.emit(twabDelegator, 'RepresentativeSet')
         .withArgs(owner.address, representative.address, false);
 
-      expect(await twabDelegator.representative(owner.address, representative.address)).to.eq(
+      expect(await twabDelegator.isRepresentativeOf(owner.address, representative.address)).to.eq(
         false,
       );
     });

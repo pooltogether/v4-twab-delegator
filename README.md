@@ -9,6 +9,7 @@
 # PoolTogether TWAB Delegator
 
 ![Tests](https://github.com/pooltogether/v4-twab-delegator/actions/workflows/main.yml/badge.svg)
+[![Coverage Status](https://coveralls.io/repos/github/pooltogether/v4-twab-delegator/badge.svg?branch=master)](https://coveralls.io/github/pooltogether/v4-twab-delegator?branch=master)
 
 The PoolTogether V4 TWAB Delegator contract allows accounts to easily delegate their chance of winning to other accounts. See the [PoolTogether V4 Docs](https://dev.pooltogether.com) for more details on chance and the TWAB.
 

@@ -1,12 +1,12 @@
 {
-  "name": "@pooltogether/pooltogether-contracts-template",
-  "version": "1.0.0-beta.2",
-  "description": "PoolTogether REPO-NAME",
+  "name": "@pooltogether/v4-twab-delegator",
+  "version": "1.0.0-beta.1",
+  "description": "PoolTogether V4 TWAB Delegator contracts",
   "main": "index.js",
   "license": "GPL-3.0",
   "scripts": {
     "clean": "rm -rf cache/ artifacts/",
-    "compile": "hardhat --show-stack-traces --max-memory 8192 compile",
+    "compile": "mkdir -p abis && hardhat --show-stack-traces --max-memory 8192 compile",
     "coverage": "HIDE_DEPLOY_LOG=true OPTIMIZER_DISABLED=true hardhat coverage",
     "coverage:file": "HIDE_DEPLOY_LOG=true OPTIMIZER_DISABLED=true hardhat coverage --testfiles",
     "docs": "solidity-docgen --solc-module solc -i contracts -o docs -t templates",

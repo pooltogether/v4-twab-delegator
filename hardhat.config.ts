@@ -19,6 +19,7 @@ const optimizerEnabled = !process.env.OPTIMIZER_DISABLED;
 const config: HardhatUserConfig = {
   abiExporter: {
     path: './abis',
+    runOnCompile: true,
     clear: true,
     flat: true,
   },

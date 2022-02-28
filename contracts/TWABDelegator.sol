@@ -508,7 +508,9 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
    * @return The lock expiration timestamp
    */
   function _computeLockUntil(uint96 _lockDuration) internal view returns (uint96) {
-    return uint96(block.timestamp) + _lockDuration;
+    unchecked {
+      return uint96(block.timestamp) + _lockDuration;
+    }
   }
 
   /**

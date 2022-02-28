@@ -29,10 +29,13 @@ contract PermitAndMulticall {
    * @return results The results from each function call
    */
   function _multicall(bytes[] calldata _data) internal virtual returns (bytes[] memory results) {
-    results = new bytes[](_data.length);
-    for (uint256 i = 0; i < _data.length; i++) {
+    uint256 _dataLength = _data.length;
+    results = new bytes[](_dataLength);
+
+    for (uint256 i; i < _dataLength; i++) {
       results[i] = Address.functionDelegateCall(address(this), _data[i]);
     }
+
     return results;
   }
 

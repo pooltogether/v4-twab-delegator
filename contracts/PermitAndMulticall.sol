@@ -26,11 +26,11 @@ contract PermitAndMulticall {
   /**
    * @notice Allows a user to call multiple functions on the same contract.  Useful for EOA who want to batch transactions.
    * @param _data An array of encoded function calls.  The calls must be abi-encoded calls to this contract.
-   * @return results The results from each function call
+   * @return The results from each function call
    */
-  function _multicall(bytes[] calldata _data) internal virtual returns (bytes[] memory results) {
+  function _multicall(bytes[] calldata _data) internal virtual returns (bytes[] memory) {
     uint256 _dataLength = _data.length;
-    results = new bytes[](_dataLength);
+    bytes[] memory results = new bytes[](_dataLength);
 
     for (uint256 i; i < _dataLength; i++) {
       results[i] = Address.functionDelegateCall(address(this), _data[i]);

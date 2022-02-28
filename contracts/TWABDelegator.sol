@@ -583,7 +583,7 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   function _requireDelegatorOrRepresentative(address _delegator) internal view {
     require(
       _delegator == msg.sender || representatives[_delegator][msg.sender],
-      "TWABDelegator/not-delegator-or-rep"
+      "TWABDelegator/not-dlgtr-or-rep"
     );
   }
 

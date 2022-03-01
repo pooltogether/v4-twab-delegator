@@ -129,7 +129,7 @@ describe('Test Set Name', () => {
 
     it('should fail to stake tickets if recipient is address zero', async () => {
       await expect(twabDelegator.stake(AddressZero, amount)).to.be.revertedWith(
-        'TWABDelegator/to-not-zero-addr',
+        'ERC20: mint to the zero address',
       );
     });
 
@@ -705,7 +705,7 @@ describe('Test Set Name', () => {
       expect(await ticket.delegateOf(delegationAddress)).to.eq(firstDelegatee.address);
     });
 
-    it('should not allow a representative transfer tickets from a delegation', async () => {
+    it('should not allow a representative to transfer tickets from a delegation', async () => {
       await increaseTime(MAX_EXPIRY + 1);
       await twabDelegator.setRepresentative(representative.address, true);
 
@@ -718,12 +718,6 @@ describe('Test Set Name', () => {
       await expect(
         twabDelegator.connect(stranger).transferDelegationTo(0, amount, owner.address),
       ).to.be.revertedWith('Transaction reverted: function call to a non-contract account');
-    });
-
-    it('should fail to transfer tickets from a delegation if amount is not greater than zero', async () => {
-      await expect(twabDelegator.transferDelegationTo(0, Zero, owner.address)).to.be.revertedWith(
-        'TWABDelegator/amount-gt-zero',
-      );
     });
 
     it('should fail to transfer tickets from a delegation if amount is not greater than zero', async () => {

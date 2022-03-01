@@ -187,7 +187,6 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
    * @param _amount Amount of tickets to stake
    */
   function stake(address _to, uint256 _amount) external {
-    _requireRecipientNotZeroAddress(_to);
     _requireAmountGtZero(_amount);
 
     IERC20(ticket).safeTransferFrom(msg.sender, address(this), _amount);

@@ -549,6 +549,7 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
    * @notice Execute a function call on the delegation contract.
    * @param _delegation Address of the delegation contract
    * @param _data The call data that will be executed
+   * @return The return datas from the calls
    */
   function _executeCall(Delegation _delegation, bytes memory _data)
     internal

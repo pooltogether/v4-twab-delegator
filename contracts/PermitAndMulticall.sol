@@ -40,7 +40,8 @@ contract PermitAndMulticall {
   }
 
   /**
-   * @notice Alow a user to approve ticket and run various calls in one transaction.
+   * @notice Allow a user to approve an ERC20 token and run various calls in one transaction.
+   * @param _permitToken Address of the ERC20 token
    * @param _from Address of the sender
    * @param _amount Amount of tickets to approve
    * @param _permitSignature Permit signature

@@ -16,7 +16,7 @@ contract TWABDelegatorHarness is TWABDelegator {
     returns (bytes[] memory)
   {
     Delegation.Call[] memory _calls = new Delegation.Call[](1);
-    _calls[0] = Delegation.Call({ to: address(ticket), value: 0, data: _data });
+    _calls[0] = Delegation.Call({ to: address(ticket), data: _data });
 
     return _delegation.executeCalls(_calls);
   }

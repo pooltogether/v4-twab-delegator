@@ -745,9 +745,9 @@ describe('Test Set Name', () => {
     });
 
     it('should fail to transfer tickets from a delegation if recipient is the contract address', async () => {
-      await expect(twabDelegator.transferDelegationTo(0, amount, twabDelegator.address)).to.be.revertedWith(
-        'TWABDelegator/to-not-this-addr',
-      );
+      await expect(
+        twabDelegator.transferDelegationTo(0, amount, twabDelegator.address),
+      ).to.be.revertedWith('TWABDelegator/to-not-this-addr');
     });
 
     it('should fail to transfer tickets from an inexistent delegation', async () => {

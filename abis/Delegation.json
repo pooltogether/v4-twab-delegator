@@ -1,5 +1,10 @@
 [
   {
+    "inputs": [],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
     "inputs": [
       {
         "components": [
@@ -27,19 +32,6 @@
         "type": "bytes[]"
       }
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint96",
-        "name": "_lockUntil",
-        "type": "uint96"
-      }
-    ],
-    "name": "initialize",
-    "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },

@@ -20,19 +20,17 @@ contract Delegation {
   }
 
   /// @notice Contract owner.
-  address private _owner;
+  address private immutable _owner;
 
   /// @notice Timestamp until which the delegation is locked.
   uint96 public lockUntil;
 
   /**
-   * @notice Initializes the delegation.
-   * @param _lockUntil Timestamp until which the delegation is locked
+   * @notice Contract constructor.
+   * @dev Set `_owner` as `msg.sender` to avoid any front-running attack through the `CREATE2` mechanism.
    */
-  function initialize(uint96 _lockUntil) external {
-    require(_owner == address(0), "Delegation/already-init");
+  constructor() {
     _owner = msg.sender;
-    lockUntil = _lockUntil;
   }
 
   /**

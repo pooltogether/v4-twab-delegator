@@ -16,7 +16,6 @@ contract LowLevelDelegator {
   /// @notice Contract constructor.
   constructor() {
     delegationInstance = new Delegation();
-    delegationInstance.initialize(uint96(0));
   }
 
   /**
@@ -27,7 +26,7 @@ contract LowLevelDelegator {
    */
   function _createDelegation(bytes32 _salt, uint96 _lockUntil) internal returns (Delegation) {
     Delegation _delegation = Delegation(address(delegationInstance).cloneDeterministic(_salt));
-    _delegation.initialize(_lockUntil);
+    _delegation.setLockUntil(_lockUntil);
     return _delegation;
   }
 

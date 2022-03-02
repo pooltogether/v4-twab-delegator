@@ -42,20 +42,18 @@ contract PermitAndMulticall {
   /**
    * @notice Allow a user to approve an ERC20 token and run various calls in one transaction.
    * @param _permitToken Address of the ERC20 token
-   * @param _from Address of the sender
    * @param _amount Amount of tickets to approve
    * @param _permitSignature Permit signature
    * @param _data Datas to call with `functionDelegateCall`
    */
   function _permitAndMulticall(
     IERC20Permit _permitToken,
-    address _from,
     uint256 _amount,
     Signature calldata _permitSignature,
     bytes[] calldata _data
   ) internal {
     _permitToken.permit(
-      _from,
+      msg.sender,
       address(this),
       _amount,
       _permitSignature.deadline,

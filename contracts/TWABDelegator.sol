@@ -187,6 +187,7 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
    * @param _amount Amount of tickets to stake
    */
   function stake(address _to, uint256 _amount) external {
+    _requireRecipientNotContractAddress(_to);
     _requireAmountGtZero(_amount);
 
     IERC20(ticket).safeTransferFrom(msg.sender, address(this), _amount);
@@ -203,6 +204,7 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
    */
   function unstake(address _to, uint256 _amount) external {
     _requireRecipientNotZeroAddress(_to);
+    _requireRecipientNotContractAddress(_to);
     _requireAmountGtZero(_amount);
 
     _burn(msg.sender, _amount);
@@ -383,6 +385,7 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
     address _to
   ) external returns (Delegation) {
     _requireRecipientNotZeroAddress(_to);
+    _requireRecipientNotContractAddress(_to);
 
     Delegation _delegation = Delegation(_computeAddress(msg.sender, _slot));
     _transfer(_delegation, _to, _amount);
@@ -604,6 +607,14 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
    */
   function _requireAmountGtZero(uint256 _amount) internal pure {
     require(_amount > 0, "TWABDelegator/amount-gt-zero");
+  }
+
+  /**
+   * @notice Require to verify that `_to` is not this contract address.
+   * @param _to Address to check
+   */
+  function _requireRecipientNotContractAddress(address _to) internal view {
+    require(_to != address(this), "TWABDelegator/to-not-this-addr");
   }
 
   /**

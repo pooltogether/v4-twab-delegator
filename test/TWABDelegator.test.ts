@@ -127,6 +127,12 @@ describe('Test Set Name', () => {
       expect(await twabDelegator.balanceOf(stranger.address)).to.eq(amount);
     });
 
+    it('should fail to stake tickets if recipient is contract address', async () => {
+      await expect(twabDelegator.stake(twabDelegator.address, amount)).to.be.revertedWith(
+        'TWABDelegator/to-not-this-addr',
+      );
+    });
+
     it('should fail to stake tickets if recipient is address zero', async () => {
       await expect(twabDelegator.stake(AddressZero, amount)).to.be.revertedWith(
         'ERC20: mint to the zero address',
@@ -186,6 +192,12 @@ describe('Test Set Name', () => {
 
       await expect(twabDelegator.unstake(AddressZero, amount)).to.be.revertedWith(
         'TWABDelegator/to-not-zero-addr',
+      );
+    });
+
+    it('should fail to unstake if recipient is the contract address', async () => {
+      await expect(twabDelegator.unstake(twabDelegator.address, amount)).to.be.revertedWith(
+        'TWABDelegator/to-not-this-addr',
       );
     });
 
@@ -729,6 +741,12 @@ describe('Test Set Name', () => {
     it('should fail to transfer tickets from a delegation if recipient is address zero', async () => {
       await expect(twabDelegator.transferDelegationTo(0, amount, AddressZero)).to.be.revertedWith(
         'TWABDelegator/to-not-zero-addr',
+      );
+    });
+
+    it('should fail to transfer tickets from a delegation if recipient is the contract address', async () => {
+      await expect(twabDelegator.transferDelegationTo(0, amount, twabDelegator.address)).to.be.revertedWith(
+        'TWABDelegator/to-not-this-addr',
       );
     });
 

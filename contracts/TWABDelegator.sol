@@ -297,7 +297,7 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
     uint256 _slot,
     uint256 _amount
   ) external returns (Delegation) {
-    _requireDelegatorNotZeroAddress(_delegator);
+    require(_delegator != address(0), "TWABDelegator/dlgtr-not-zero-adr");
     _requireAmountGtZero(_amount);
 
     Delegation _delegation = Delegation(_computeAddress(_delegator, _slot));
@@ -604,14 +604,6 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
    */
   function _requireAmountGtZero(uint256 _amount) internal pure {
     require(_amount > 0, "TWABDelegator/amount-gt-zero");
-  }
-
-  /**
-   * @notice Require to verify that `_delegator` is not address zero.
-   * @param _delegator Address to check
-   */
-  function _requireDelegatorNotZeroAddress(address _delegator) internal pure {
-    require(_delegator != address(0), "TWABDelegator/dlgtr-not-zero-adr");
   }
 
   /**

@@ -99,7 +99,7 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
    * @param delegator Address of the delegator
    * @param slot Slot of the delegation
    * @param amount Amount of tickets that were sent to the delegation
-   * @param user Address of the user who funded the delegation
+   * @param user Address of the user who pulled funds from the delegator stake to the delegation
    */
   event DelegationFundedFromStake(
     address indexed delegator,
@@ -111,7 +111,7 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   /**
    * @notice Emitted when an amount of tickets has been withdrawn from a delegation. The tickets are held by this contract and the delegator stake is increased.
    * @param delegator Address of the delegator
-   * @param slot  Slot of the delegation
+   * @param slot Slot of the delegation
    * @param amount Amount of tickets withdrawn
    * @param user Address of the user who withdrew the tickets
    */
@@ -123,10 +123,11 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   );
 
   /**
-   * @notice Emitted when a delegator withdraws an amount of tickets from a delegation to their wallet.
+   * @notice Emitted when a delegator withdraws an amount of tickets from a delegation to a specified wallet.
    * @param delegator Address of the delegator
    * @param slot  Slot of the delegation
    * @param amount Amount of tickets withdrawn
+   * @param to Recipient address of withdrawn tickets
    */
   event TransferredDelegation(
     address indexed delegator,
@@ -234,11 +235,13 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
     _requireLockDuration(_lockDuration);
 
     uint96 _lockUntil = _computeLockUntil(_lockDuration);
+
     Delegation _delegation = _createDelegation(
       _computeSalt(_delegator, bytes32(_slot)),
       _lockUntil
     );
-    _delegateCall(_delegation, _delegatee);
+
+    _setDelegateeCall(_delegation, _delegatee);
 
     emit DelegationCreated(_delegator, _slot, _lockUntil, _delegatee, _delegation, msg.sender);
 
@@ -274,7 +277,7 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
       _delegation.setLockUntil(_lockUntil);
     }
 
-    _delegateCall(_delegation, _delegatee);
+    _setDelegateeCall(_delegation, _delegatee);
 
     emit DelegateeUpdated(_delegator, _slot, _delegatee, _lockUntil, msg.sender);
 
@@ -367,8 +370,8 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
-   * @notice Withdraw an `_amount` of tickets from a delegation. The delegator is assumed to be the caller. The tickets are transferred to the caller.
-   * @dev Will directly send the tickets to the delegator wallet.
+   * @notice Withdraw an `_amount` of tickets from a delegation. The delegator is assumed to be the caller.
+   * @dev Tickets are sent directly to the passed `_to` address.
    * @dev Will revert if delegation is still locked.
    * @param _slot Slot of the delegation
    * @param _amount Amount to withdraw
@@ -514,11 +517,11 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   }
 
   /**
-   * @notice Has the Delegation contact delegate its tickets to the delegatee.
+   * @notice Delegates tickets from the `_delegation` contract to the `_delegatee` address.
    * @param _delegation Address of the delegation contract
    * @param _delegatee Address of the delegatee
    */
-  function _delegateCall(Delegation _delegation, address _delegatee) internal {
+  function _setDelegateeCall(Delegation _delegation, address _delegatee) internal {
     bytes4 _selector = ticket.delegate.selector;
     bytes memory _data = abi.encodeWithSelector(_selector, _delegatee);
 

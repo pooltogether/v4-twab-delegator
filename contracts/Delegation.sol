@@ -38,10 +38,15 @@ contract Delegation {
    * @return An array of the return values for each of the calls
    */
   function executeCalls(Call[] calldata calls) external onlyOwner returns (bytes[] memory) {
-    bytes[] memory response = new bytes[](calls.length);
-    for (uint256 i = 0; i < calls.length; i++) {
-      response[i] = _executeCall(calls[i].to, calls[i].value, calls[i].data);
+    uint256 _callsLength = calls.length;
+    bytes[] memory response = new bytes[](_callsLength);
+    Call memory call;
+
+    for (uint256 i; i < _callsLength; i++) {
+      call = calls[i];
+      response[i] = _executeCall(call.to, call.value, call.data);
     }
+
     return response;
   }
 

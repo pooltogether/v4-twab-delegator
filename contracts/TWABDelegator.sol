@@ -595,7 +595,7 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
    * @param _delegatee Address of the delegatee
    */
   function _requireDelegateeNotZeroAddress(address _delegatee) internal pure {
-    require(_delegatee != address(0), "TWABDelegator/dlgt-not-zero-adr");
+    require(_delegatee != address(0), "TWABDelegator/dlgt-not-zero-addr");
   }
 
   /**

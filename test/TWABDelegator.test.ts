@@ -268,7 +268,7 @@ describe('Test Set Name', () => {
     it('should fail to create delegation if delegatee is address zero', async () => {
       await expect(
         twabDelegator.createDelegation(owner.address, 0, AddressZero, MAX_EXPIRY),
-      ).to.be.revertedWith('TWABDelegator/dlgt-not-zero-adr');
+      ).to.be.revertedWith('TWABDelegator/dlgt-not-zero-addr');
     });
 
     it('should fail to create delegation if expiry is greater than 180 days', async () => {
@@ -402,7 +402,7 @@ describe('Test Set Name', () => {
     it('should fail to update a delegatee if delegatee address passed is address zero', async () => {
       await expect(
         twabDelegator.updateDelegatee(owner.address, 0, AddressZero, 0),
-      ).to.be.revertedWith('TWABDelegator/dlgt-not-zero-adr');
+      ).to.be.revertedWith('TWABDelegator/dlgt-not-zero-addr');
     });
 
     it('should fail to update an inexistent delegation', async () => {

@@ -26,7 +26,7 @@ contract Delegation {
    * @notice Initializes the delegation.
    * @param _lockUntil Timestamp until which the delegation is locked
    */
-  function initialize(uint96 _lockUntil) public {
+  function initialize(uint96 _lockUntil) external {
     require(_owner == address(0), "Delegation/already-init");
     _owner = msg.sender;
     lockUntil = _lockUntil;

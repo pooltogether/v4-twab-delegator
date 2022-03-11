@@ -262,7 +262,7 @@ describe('Test Set Name', () => {
     it('should fail to create delegation if delegator is address zero', async () => {
       await expect(
         twabDelegator.createDelegation(AddressZero, 0, firstDelegatee.address, MAX_EXPIRY),
-      ).to.be.revertedWith('TWABDelegator/not-delegator-or-rep');
+      ).to.be.revertedWith('TWABDelegator/not-dlgtr-or-rep');
     });
 
     it('should fail to create delegation if delegatee is address zero', async () => {
@@ -396,7 +396,7 @@ describe('Test Set Name', () => {
         twabDelegator
           .connect(stranger)
           .updateDelegatee(owner.address, 0, secondDelegatee.address, 0),
-      ).to.be.revertedWith('TWABDelegator/not-delegator-or-rep');
+      ).to.be.revertedWith('TWABDelegator/not-dlgtr-or-rep');
     });
 
     it('should fail to update a delegatee if delegatee address passed is address zero', async () => {
@@ -540,7 +540,7 @@ describe('Test Set Name', () => {
     it('should fail to transfer tickets to a delegation if delegator passed is not a delegator', async () => {
       await expect(
         twabDelegator.fundDelegationFromStake(stranger.address, 0, amount),
-      ).to.be.revertedWith('TWABDelegator/not-delegator-or-rep');
+      ).to.be.revertedWith('TWABDelegator/not-dlgtr-or-rep');
     });
 
     it('should fail to transfer tickets to a delegation if amount passed is not greater than zero', async () => {
@@ -631,7 +631,7 @@ describe('Test Set Name', () => {
     it('should fail to withdraw from a delegation to the stake if caller is not the delegator or representative of the delegation', async () => {
       await expect(
         twabDelegator.connect(stranger).withdrawDelegationToStake(owner.address, 0, amount),
-      ).to.be.revertedWith('TWABDelegator/not-delegator-or-rep');
+      ).to.be.revertedWith('TWABDelegator/not-dlgtr-or-rep');
     });
 
     it('should fail to withdraw from a delegation to the stake an inexistent delegation', async () => {

@@ -432,18 +432,16 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
 
   /**
    * @notice Alow a user to approve ticket and run various calls in one transaction.
-   * @param _from Address of the sender
    * @param _amount Amount of tickets to approve
    * @param _permitSignature Permit signature
    * @param _data Datas to call with `functionDelegateCall`
    */
   function permitAndMulticall(
-    address _from,
     uint256 _amount,
     Signature calldata _permitSignature,
     bytes[] calldata _data
   ) external {
-    _permitAndMulticall(IERC20Permit(address(ticket)), _from, _amount, _permitSignature, _data);
+    _permitAndMulticall(IERC20Permit(address(ticket)), _amount, _permitSignature, _data);
   }
 
   /**

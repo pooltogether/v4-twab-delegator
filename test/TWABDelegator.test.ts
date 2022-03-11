@@ -815,7 +815,6 @@ describe('Test Set Name', () => {
       );
 
       await twabDelegator.permitAndMulticall(
-        owner.address,
         amount,
         { v: signature.v, r: signature.r, s: signature.s, deadline: signature.deadline },
         [stakeTx.data, createDelegationTx.data],

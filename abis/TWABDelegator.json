@@ -706,7 +706,7 @@
     "outputs": [
       {
         "internalType": "bytes[]",
-        "name": "results",
+        "name": "",
         "type": "bytes[]"
       }
     ],

@@ -422,9 +422,9 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
   /**
    * @notice Allows a user to call multiple functions on the same contract.  Useful for EOA who wants to batch transactions.
    * @param _data An array of encoded function calls.  The calls must be abi-encoded calls to this contract.
-   * @return results The results from each function call
+   * @return The results from each function call
    */
-  function multicall(bytes[] calldata _data) external returns (bytes[] memory results) {
+  function multicall(bytes[] calldata _data) external returns (bytes[] memory) {
     return _multicall(_data);
   }
 

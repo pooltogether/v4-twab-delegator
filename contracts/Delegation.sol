@@ -9,10 +9,13 @@ pragma solidity 0.8.6;
  * @dev This contract will hold tickets that will be delegated to a chosen delegatee.
  */
 contract Delegation {
-  /// @notice A structure to define arbitrary contract calls.
+  /**
+   * @notice A structure to define arbitrary contract calls.
+   * @param to The address to call
+   * @param data The call data
+   */
   struct Call {
     address to;
-    uint256 value;
     bytes data;
   }
 
@@ -44,7 +47,7 @@ contract Delegation {
 
     for (uint256 i; i < _callsLength; i++) {
       call = calls[i];
-      response[i] = _executeCall(call.to, call.value, call.data);
+      response[i] = _executeCall(call.to, call.data);
     }
 
     return response;
@@ -61,16 +64,11 @@ contract Delegation {
   /**
    * @notice Executes a call to another contract.
    * @param to The address to call
-   * @param value The Ether to pass along with the call
    * @param data The call data
    * @return The return data from the call
    */
-  function _executeCall(
-    address to,
-    uint256 value,
-    bytes memory data
-  ) internal returns (bytes memory) {
-    (bool succeeded, bytes memory returnValue) = to.call{ value: value }(data);
+  function _executeCall(address to, bytes memory data) internal returns (bytes memory) {
+    (bool succeeded, bytes memory returnValue) = to.call{ value: 0 }(data);
     require(succeeded, string(returnValue));
     return returnValue;
   }

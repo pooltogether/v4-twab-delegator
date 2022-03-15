@@ -63,7 +63,7 @@ describe('Test Set Name', () => {
     ticket = await ticketContractFactory.deploy(
       'PoolTogether aUSDC Ticket',
       'PTaUSDC',
-      18,
+      6,
       controller.address,
     );
 
@@ -856,6 +856,12 @@ describe('Test Set Name', () => {
       expect(balance).to.equal(amount);
       expect(lockUntil).to.equal(block.timestamp + MAX_EXPIRY);
       expect(wasCreated).to.equal(true);
+    });
+  });
+
+  describe('decimals()', () => {
+    it('should return ticket decimals', async () => {
+      expect(await twabDelegator.decimals()).to.eq(6);
     });
   });
 });

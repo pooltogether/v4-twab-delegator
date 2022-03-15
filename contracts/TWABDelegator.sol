@@ -489,6 +489,15 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
     return _computeAddress(_delegator, _slot);
   }
 
+  /**
+   * @notice Returns the ERC20 token decimals.
+   * @dev This value is equal to the decimals of the ticket being delegated.
+   * @return ERC20 token decimals
+   */
+  function decimals() public view virtual override returns (uint8) {
+    return ERC20(address(ticket)).decimals();
+  }
+
   /* ============ Internal Functions ============ */
 
   /**

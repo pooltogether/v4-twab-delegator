@@ -301,8 +301,6 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
     _requireAmountGtZero(_amount);
 
     Delegation _delegation = Delegation(_computeAddress(_delegator, _slot));
-    _requireContract(address(_delegation));
-
     IERC20(ticket).safeTransferFrom(msg.sender, address(_delegation), _amount);
 
     emit DelegationFunded(_delegator, _slot, _amount, msg.sender);
@@ -329,7 +327,6 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
     _requireAmountGtZero(_amount);
 
     Delegation _delegation = Delegation(_computeAddress(_delegator, _slot));
-    _requireContract(address(_delegation));
 
     _burn(_delegator, _amount);
 
@@ -627,14 +624,6 @@ contract TWABDelegator is ERC20, LowLevelDelegator, PermitAndMulticall {
    */
   function _requireDelegationUnlocked(Delegation _delegation) internal view {
     require(block.timestamp >= _delegation.lockUntil(), "TWABDelegator/delegation-locked");
-  }
-
-  /**
-   * @notice Require to verify that `_address` is a contract.
-   * @param _address Address to check
-   */
-  function _requireContract(address _address) internal view {
-    require(_address.isContract(), "TWABDelegator/not-a-contract");
   }
 
   /**

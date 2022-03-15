@@ -456,6 +456,29 @@ describe('Test Set Name', () => {
       expect(await ticket.delegateOf(delegationAddress)).to.eq(firstDelegatee.address);
     });
 
+    it('should fund an inexistent delegation and then create it', async () => {
+      await twabDelegator.connect(stranger).fundDelegation(owner.address, 1, amount);
+
+      const transaction = await twabDelegator.createDelegation(
+        owner.address,
+        1,
+        firstDelegatee.address,
+        MAX_EXPIRY,
+      );
+
+      delegationAddress = await getDelegationAddress(transaction);
+
+      const firstDelegateeAccountDetails = await ticket.getAccountDetails(firstDelegatee.address);
+      expect(firstDelegateeAccountDetails.balance).to.eq(amount);
+
+      expect(await twabDelegator.balanceOf(owner.address)).to.eq(Zero);
+      expect(await twabDelegator.balanceOf(stranger.address)).to.eq(Zero);
+
+      expect(await ticket.balanceOf(twabDelegator.address)).to.eq(Zero);
+      expect(await ticket.balanceOf(delegationAddress)).to.eq(amount);
+      expect(await ticket.delegateOf(delegationAddress)).to.eq(firstDelegatee.address);
+    });
+
     it('should fail to transfer tickets to a delegation if delegator passed is address zero', async () => {
       await expect(
         twabDelegator.connect(stranger).fundDelegation(AddressZero, 0, amount),
@@ -466,12 +489,6 @@ describe('Test Set Name', () => {
       await expect(
         twabDelegator.connect(stranger).fundDelegation(owner.address, 0, Zero),
       ).to.be.revertedWith('TWABDelegator/amount-gt-zero');
-    });
-
-    it('should fail to fund an inexistent delegation', async () => {
-      await expect(
-        twabDelegator.connect(stranger).fundDelegation(owner.address, 1, amount),
-      ).to.be.revertedWith('TWABDelegator/not-a-contract');
     });
   });
 
@@ -537,6 +554,28 @@ describe('Test Set Name', () => {
       expect(await ticket.delegateOf(delegationAddress)).to.eq(firstDelegatee.address);
     });
 
+    it('should transfer tickets to an inexistent delegation and then create it', async () => {
+      await twabDelegator.fundDelegationFromStake(owner.address, 1, amount);
+
+      const transaction = await twabDelegator.createDelegation(
+        owner.address,
+        1,
+        firstDelegatee.address,
+        MAX_EXPIRY,
+      );
+
+      delegationAddress = await getDelegationAddress(transaction);
+
+      const firstDelegateeAccountDetails = await ticket.getAccountDetails(firstDelegatee.address);
+      expect(firstDelegateeAccountDetails.balance).to.eq(amount);
+
+      expect(await twabDelegator.balanceOf(owner.address)).to.eq(Zero);
+
+      expect(await ticket.balanceOf(twabDelegator.address)).to.eq(Zero);
+      expect(await ticket.balanceOf(delegationAddress)).to.eq(amount);
+      expect(await ticket.delegateOf(delegationAddress)).to.eq(firstDelegatee.address);
+    });
+
     it('should fail to transfer tickets to a delegation if delegator passed is not a delegator', async () => {
       await expect(
         twabDelegator.fundDelegationFromStake(stranger.address, 0, amount),
@@ -553,12 +592,6 @@ describe('Test Set Name', () => {
       await expect(
         twabDelegator.fundDelegationFromStake(owner.address, 0, amount.mul(2)),
       ).to.be.revertedWith('ERC20: burn amount exceeds balance');
-    });
-
-    it('should fail to transfer tickets to an inexistent delegation', async () => {
-      await expect(
-        twabDelegator.fundDelegationFromStake(owner.address, 1, amount),
-      ).to.be.revertedWith('TWABDelegator/not-a-contract');
     });
   });
 
